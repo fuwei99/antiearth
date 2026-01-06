@@ -32,7 +32,7 @@ class TokenManager {
     this.tokens = [];
     /** @type {number} */
     this.currentIndex = 0;
-    
+
     // 轮询策略相关 - 使用原子操作避免锁
     /** @type {string} */
     this.rotationStrategy = RotationStrategy.ROUND_ROBIN;
@@ -40,7 +40,7 @@ class TokenManager {
     this.requestCountPerToken = DEFAULT_REQUEST_COUNT_PER_TOKEN;
     /** @type {Map<string, number>} */
     this.tokenRequestCounts = new Map();
-    
+
     // 针对额度耗尽策略的可用 token 索引缓存（优化大规模账号场景）
     /** @type {number[]} */
     this.availableQuotaTokenIndices = [];
@@ -55,19 +55,19 @@ class TokenManager {
     try {
       log.info('正在初始化token管理器...');
       const tokenArray = await this.store.readAll();
-      
+
       this.tokens = tokenArray.filter(token => token.enable !== false).map(token => ({
         ...token,
         sessionId: generateSessionId()
       }));
-      
+
       this.currentIndex = 0;
       this.tokenRequestCounts.clear();
       this._rebuildAvailableQuotaTokens();
-      
+
       // 加载轮询策略配置
       this.loadRotationConfig();
-      
+
       if (this.tokens.length === 0) {
         log.warn('⚠ 暂无可用账号，请使用以下方式添加：');
         log.warn('  方式1: 运行 npm run login 命令登录');
@@ -79,7 +79,7 @@ class TokenManager {
         } else {
           log.info(`轮询策略: ${this.rotationStrategy}`);
         }
-        
+
         // 并发刷新所有过期的 token
         await this._refreshExpiredTokensConcurrently();
       }
@@ -316,12 +316,12 @@ class TokenManager {
       case RotationStrategy.ROUND_ROBIN:
         // 均衡负载：每次请求后都切换
         return true;
-        
+
       case RotationStrategy.QUOTA_EXHAUSTED:
         // 额度耗尽才切换：检查token的hasQuota标记
         // 如果hasQuota为false，说明额度已耗尽，需要切换
         return token.hasQuota === false;
-        
+
       case RotationStrategy.REQUEST_COUNT:
         // 自定义次数后切换
         const tokenKey = token.refresh_token;
@@ -331,7 +331,7 @@ class TokenManager {
           return true;
         }
         return false;
-        
+
       default:
         return true;
     }
@@ -342,7 +342,7 @@ class TokenManager {
     token.hasQuota = false;
     this.saveToFile(token);
     log.warn(`...${token.access_token.slice(-8)}: 额度已耗尽，标记为无额度`);
-    
+
     if (this.rotationStrategy === RotationStrategy.QUOTA_EXHAUSTED) {
       const tokenIndex = this.tokens.findIndex(t => t.refresh_token === token.refresh_token);
       if (tokenIndex !== -1) {
@@ -543,10 +543,56 @@ class TokenManager {
     log.info('Token已热重载');
   }
 
+  async batchAddTokens(tokenDataArray) {
+    try {
+      const allTokens = await this.store.readAll();
+      const existingRefreshTokens = new Set(allTokens.map(t => t.refresh_token));
+
+      let addedCount = 0;
+      let ignoredCount = 0;
+
+      for (const tokenData of tokenDataArray) {
+        if (!tokenData.refresh_token || !tokenData.access_token) {
+          continue;
+        }
+
+        if (existingRefreshTokens.has(tokenData.refresh_token)) {
+          ignoredCount++;
+          continue;
+        }
+
+        const newToken = {
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token,
+          expires_in: tokenData.expires_in || 3599,
+          timestamp: tokenData.timestamp || Date.now(),
+          enable: tokenData.enable !== undefined ? tokenData.enable : true,
+          projectId: tokenData.projectId || undefined,
+          email: tokenData.email || undefined,
+          hasQuota: tokenData.hasQuota !== undefined ? tokenData.hasQuota : true
+        };
+
+        allTokens.push(newToken);
+        existingRefreshTokens.add(tokenData.refresh_token);
+        addedCount++;
+      }
+
+      if (addedCount > 0) {
+        await this.store.writeAll(allTokens);
+        await this.reload();
+      }
+
+      return { success: true, added: addedCount, ignored: ignoredCount };
+    } catch (error) {
+      log.error('批量添加Token失败:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
   async addToken(tokenData) {
     try {
       const allTokens = await this.store.readAll();
-      
+
       const newToken = {
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
@@ -554,7 +600,7 @@ class TokenManager {
         timestamp: tokenData.timestamp || Date.now(),
         enable: tokenData.enable !== undefined ? tokenData.enable : true
       };
-      
+
       if (tokenData.projectId) {
         newToken.projectId = tokenData.projectId;
       }
@@ -564,10 +610,10 @@ class TokenManager {
       if (tokenData.hasQuota !== undefined) {
         newToken.hasQuota = tokenData.hasQuota;
       }
-      
+
       allTokens.push(newToken);
       await this.store.writeAll(allTokens);
-      
+
       await this.reload();
       return { success: true, message: 'Token添加成功' };
     } catch (error) {
@@ -579,15 +625,15 @@ class TokenManager {
   async updateToken(refreshToken, updates) {
     try {
       const allTokens = await this.store.readAll();
-      
+
       const index = allTokens.findIndex(t => t.refresh_token === refreshToken);
       if (index === -1) {
         return { success: false, message: 'Token不存在' };
       }
-      
+
       allTokens[index] = { ...allTokens[index], ...updates };
       await this.store.writeAll(allTokens);
-      
+
       await this.reload();
       return { success: true, message: 'Token更新成功' };
     } catch (error) {
@@ -599,14 +645,14 @@ class TokenManager {
   async deleteToken(refreshToken) {
     try {
       const allTokens = await this.store.readAll();
-      
+
       const filteredTokens = allTokens.filter(t => t.refresh_token !== refreshToken);
       if (filteredTokens.length === allTokens.length) {
         return { success: false, message: 'Token不存在' };
       }
-      
+
       await this.store.writeAll(filteredTokens);
-      
+
       await this.reload();
       return { success: true, message: 'Token删除成功' };
     } catch (error) {
@@ -618,7 +664,7 @@ class TokenManager {
   async getTokenList() {
     try {
       const allTokens = await this.store.readAll();
-      
+
       return allTokens.map(token => ({
         refresh_token: token.refresh_token,
         access_token: token.access_token,

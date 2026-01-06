@@ -27,9 +27,9 @@ function updateFilterButtonState(filter) {
 function filterTokens(filter) {
     currentFilter = filter;
     localStorage.setItem('tokenFilter', filter); // 持久化筛选状态
-    
+
     updateFilterButtonState(filter);
-    
+
     // 重新渲染
     renderTokens(cachedTokens);
 }
@@ -39,7 +39,7 @@ async function loadTokens() {
         const response = await authFetch('/admin/tokens', {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        
+
         const data = await response.json();
         if (data.success) {
             renderTokens(data.data);
@@ -59,11 +59,11 @@ function renderTokens(tokens) {
     if (tokens !== cachedTokens) {
         cachedTokens = tokens;
     }
-    
+
     document.getElementById('totalTokens').textContent = tokens.length;
     document.getElementById('enabledTokens').textContent = tokens.filter(t => t.enable).length;
     document.getElementById('disabledTokens').textContent = tokens.filter(t => !t.enable).length;
-    
+
     // 根据筛选条件过滤
     let filteredTokens = tokens;
     if (currentFilter === 'enabled') {
@@ -71,11 +71,11 @@ function renderTokens(tokens) {
     } else if (currentFilter === 'disabled') {
         filteredTokens = tokens.filter(t => !t.enable);
     }
-    
+
     const tokenList = document.getElementById('tokenList');
     if (filteredTokens.length === 0) {
         const emptyText = currentFilter === 'all' ? '暂无Token' :
-                          currentFilter === 'enabled' ? '暂无启用的Token' : '暂无禁用的Token';
+            currentFilter === 'enabled' ? '暂无启用的Token' : '暂无禁用的Token';
         const emptyHint = currentFilter === 'all' ? '点击上方OAuth按钮添加Token' : '点击上方"总数"查看全部';
         tokenList.innerHTML = `
             <div class="empty-state">
@@ -86,15 +86,15 @@ function renderTokens(tokens) {
         `;
         return;
     }
-    
+
     tokenList.innerHTML = filteredTokens.map((token, index) => {
         const isRefreshing = refreshingTokens.has(token.refresh_token);
         const cardId = token.refresh_token.substring(0, 8);
-        
+
         // 计算在原始列表中的序号（基于添加顺序）
         const originalIndex = cachedTokens.findIndex(t => t.refresh_token === token.refresh_token);
         const tokenNumber = originalIndex + 1;
-        
+
         // 转义所有用户数据防止 XSS
         const safeRefreshToken = escapeJs(token.refresh_token);
         const safeAccessTokenSuffix = escapeHtml(token.access_token_suffix || '');
@@ -102,7 +102,7 @@ function renderTokens(tokens) {
         const safeEmail = escapeHtml(token.email || '');
         const safeProjectIdJs = escapeJs(token.projectId || '');
         const safeEmailJs = escapeJs(token.email || '');
-        
+
         return `
         <div class="token-card ${!token.enable ? 'disabled' : ''} ${isRefreshing ? 'refreshing' : ''} ${skipAnimation ? 'no-animation' : ''}" id="card-${escapeHtml(cardId)}">
             <div class="token-header">
@@ -149,13 +149,13 @@ function renderTokens(tokens) {
             </div>
         </div>
     `}).join('');
-    
+
     filteredTokens.forEach(token => {
         loadTokenQuotaSummary(token.refresh_token);
     });
-    
+
     updateSensitiveInfoDisplay();
-    
+
     // 重置动画跳过标志
     skipAnimation = false;
 }
@@ -172,10 +172,10 @@ async function manualRefreshToken(refreshToken) {
 // 刷新指定 Token（手动触发）
 async function autoRefreshToken(refreshToken) {
     if (refreshingTokens.has(refreshToken)) return;
-    
+
     refreshingTokens.add(refreshToken);
     const cardId = refreshToken.substring(0, 8);
-    
+
     // 更新 UI 显示刷新中状态
     const card = document.getElementById(`card-${cardId}`);
     const refreshBtn = document.getElementById(`refresh-btn-${cardId}`);
@@ -188,13 +188,13 @@ async function autoRefreshToken(refreshToken) {
         refreshBtn.classList.add('loading');
         refreshBtn.textContent = '🔄';
     }
-    
+
     try {
         const response = await authFetch(`/admin/tokens/${encodeURIComponent(refreshToken)}/refresh`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        
+
         const data = await response.json();
         if (data.success) {
             showToast('Token 已自动刷新', 'success');
@@ -266,12 +266,12 @@ async function addTokenFromModal() {
     const accessToken = document.getElementById('modalAccessToken').value.trim();
     const refreshToken = document.getElementById('modalRefreshToken').value.trim();
     const expiresIn = parseInt(document.getElementById('modalExpiresIn').value);
-    
+
     if (!accessToken || !refreshToken) {
         showToast('请填写完整的Token信息', 'warning');
         return;
     }
-    
+
     showLoading('正在添加Token...');
     try {
         const response = await authFetch('/admin/tokens', {
@@ -282,7 +282,7 @@ async function addTokenFromModal() {
             },
             body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken, expires_in: expiresIn })
         });
-        
+
         const data = await response.json();
         hideLoading();
         if (data.success) {
@@ -302,26 +302,26 @@ function editField(event, refreshToken, field, currentValue) {
     event.stopPropagation();
     const row = event.currentTarget;
     const valueSpan = row.querySelector('.info-value');
-    
+
     if (row.querySelector('input')) return;
-    
+
     const fieldLabels = { projectId: 'Project ID', email: '邮箱' };
-    
+
     const input = document.createElement('input');
     input.type = field === 'email' ? 'email' : 'text';
     input.value = currentValue;
     input.className = 'inline-edit-input';
     input.placeholder = `输入${fieldLabels[field]}`;
-    
+
     valueSpan.style.display = 'none';
     row.insertBefore(input, valueSpan.nextSibling);
     input.focus();
     input.select();
-    
+
     const save = async () => {
         const newValue = input.value.trim();
         input.disabled = true;
-        
+
         try {
             const response = await authFetch(`/admin/tokens/${encodeURIComponent(refreshToken)}`, {
                 method: 'PUT',
@@ -331,7 +331,7 @@ function editField(event, refreshToken, field, currentValue) {
                 },
                 body: JSON.stringify({ [field]: newValue })
             });
-            
+
             const data = await response.json();
             if (data.success) {
                 showToast('已保存', 'success');
@@ -345,12 +345,12 @@ function editField(event, refreshToken, field, currentValue) {
             cancel();
         }
     };
-    
+
     const cancel = () => {
         input.remove();
         valueSpan.style.display = '';
     };
-    
+
     input.addEventListener('blur', () => {
         setTimeout(() => {
             if (document.activeElement !== input) {
@@ -362,7 +362,7 @@ function editField(event, refreshToken, field, currentValue) {
             }
         }, 100);
     });
-    
+
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -379,7 +379,7 @@ function showTokenDetail(refreshToken) {
         showToast('Token不存在', 'error');
         return;
     }
-    
+
     // 转义所有用户数据防止 XSS
     const safeAccessToken = escapeHtml(token.access_token || '');
     const safeRefreshToken = escapeHtml(token.refresh_token);
@@ -387,7 +387,7 @@ function showTokenDetail(refreshToken) {
     const safeProjectId = escapeHtml(token.projectId || '');
     const safeEmail = escapeHtml(token.email || '');
     const updatedAtStr = escapeHtml(token.timestamp ? new Date(token.timestamp).toLocaleString('zh-CN') : '未知');
-    
+
     const modal = document.createElement('div');
     modal.className = 'modal form-modal';
     modal.innerHTML = `
@@ -426,7 +426,7 @@ function showTokenDetail(refreshToken) {
 async function saveTokenDetail(refreshToken) {
     const projectId = document.getElementById('editProjectId').value.trim();
     const email = document.getElementById('editEmail').value.trim();
-    
+
     showLoading('保存中...');
     try {
         const response = await authFetch(`/admin/tokens/${encodeURIComponent(refreshToken)}`, {
@@ -437,7 +437,7 @@ async function saveTokenDetail(refreshToken) {
             },
             body: JSON.stringify({ projectId, email })
         });
-        
+
         const data = await response.json();
         hideLoading();
         if (data.success) {
@@ -457,7 +457,7 @@ async function toggleToken(refreshToken, enable) {
     const action = enable ? '启用' : '禁用';
     const confirmed = await showConfirm(`确定要${action}这个Token吗？`, `${action}确认`);
     if (!confirmed) return;
-    
+
     showLoading(`正在${action}...`);
     try {
         const response = await authFetch(`/admin/tokens/${encodeURIComponent(refreshToken)}`, {
@@ -468,7 +468,7 @@ async function toggleToken(refreshToken, enable) {
             },
             body: JSON.stringify({ enable })
         });
-        
+
         const data = await response.json();
         hideLoading();
         if (data.success) {
@@ -487,14 +487,14 @@ async function toggleToken(refreshToken, enable) {
 async function deleteToken(refreshToken) {
     const confirmed = await showConfirm('删除后无法恢复，确定删除？', '⚠️ 删除确认');
     if (!confirmed) return;
-    
+
     showLoading('正在删除...');
     try {
         const response = await authFetch(`/admin/tokens/${encodeURIComponent(refreshToken)}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        
+
         const data = await response.json();
         hideLoading();
         if (data.success) {
@@ -507,4 +507,99 @@ async function deleteToken(refreshToken) {
         hideLoading();
         showToast('删除失败: ' + error.message, 'error');
     }
+}
+
+// 导出 Tokens
+async function exportTokens() {
+    showLoading('正在导出...');
+    try {
+        const response = await authFetch('/admin/tokens', {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await response.json();
+        hideLoading();
+
+        if (data.success) {
+            const tokensToExport = data.data.map(t => ({
+                access_token: t.access_token,
+                refresh_token: t.refresh_token,
+                expires_in: t.expires_in,
+                timestamp: t.timestamp,
+                enable: t.enable,
+                projectId: t.projectId,
+                email: t.email,
+                hasQuota: t.hasQuota
+            }));
+
+            const blob = new Blob([JSON.stringify(tokensToExport, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            a.download = `antipapo-tokens-${timestamp}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('导出成功', 'success');
+        } else {
+            showToast('导出失败: ' + (data.message || '未知错误'), 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('导出失败: ' + error.message, 'error');
+    }
+}
+
+// 触发文件导入
+function importTokens() {
+    document.getElementById('importFile').click();
+}
+
+// 处理文件导入
+async function handleImportFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const tokens = JSON.parse(e.target.result);
+            if (!Array.isArray(tokens)) {
+                throw new Error('JSON文件格式不正确，根节点必须是数组');
+            }
+
+            const confirmed = await showConfirm(`即将导入 ${tokens.length} 个Token，重复的Token将被忽略。是否继续？`, '导入确认');
+            if (!confirmed) {
+                input.value = ''; // 重置文件输入
+                return;
+            }
+
+            showLoading('正在导入...');
+            const response = await authFetch('/admin/tokens/batch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify(tokens)
+            });
+
+            const data = await response.json();
+            hideLoading();
+
+            if (data.success) {
+                showToast(`导入完成: 新增 ${data.added}, 忽略 ${data.ignored}`, 'success');
+                loadTokens();
+            } else {
+                showToast('导入失败: ' + (data.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+            hideLoading();
+            showToast('导入失败: ' + error.message, 'error');
+        } finally {
+            input.value = ''; // 重置文件输入
+        }
+    };
+    reader.readAsText(file);
 }
