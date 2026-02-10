@@ -46,8 +46,8 @@ if (config.useNativeAxios === true) {
 
     // 根据环境选择配置文件路径
     const configPath = isPkg
-  ? path.join(path.dirname(process.execPath), 'bin', 'tls_config.json')  // pkg 打包环境
-  : path.join(__dirname, '..', 'bin', 'tls_config.json');  // 开发环境
+      ? path.join(path.dirname(process.execPath), 'bin', 'tls_config.json')  // pkg 打包环境
+      : path.join(__dirname, '..', 'bin', 'tls_config.json');  // 开发环境
     requester = fingerprintRequester.create({
       configPath,
       timeout: config.timeout ? Math.ceil(config.timeout / 1000) : 30,
@@ -73,8 +73,9 @@ let modelListCacheTime = 0;
 // 默认模型列表（当 API 请求失败时使用）
 // 使用 Object.freeze 防止意外修改，并帮助 V8 优化
 const DEFAULT_MODELS = Object.freeze([
+  'claude-opus-4-6',
   'claude-opus-4-5',
-  'claude-opus-4-5-thinking',
+  'claude-opus-4-6-thinking',
   'claude-sonnet-4-5-thinking',
   'claude-sonnet-4-5',
   'gemini-3-pro-high',
@@ -158,7 +159,7 @@ async function handleApiError(error, token, dumpId = null) {
   if (dumpId) {
     await dumpFinalRawResponse(dumpId, String(errorBody ?? ''));
   }
-  
+
   if (status === 403) {
     if (isCallerDoesNotHavePermission(errorBody)) {
       throw createApiError(`超出模型最大上下文。错误详情: ${errorBody}`, status, errorBody);
@@ -166,7 +167,7 @@ async function handleApiError(error, token, dumpId = null) {
     tokenManager.disableCurrentToken(token);
     throw createApiError(`该账号没有使用权限，已自动禁用。错误详情: ${errorBody}`, status, errorBody);
   }
-  
+
   throw createApiError(`API请求失败 (${status}): ${errorBody}`, status, errorBody);
 }
 
@@ -174,7 +175,7 @@ async function handleApiError(error, token, dumpId = null) {
 // ==================== 导出函数 ====================
 
 export async function generateAssistantResponse(requestBody, token, callback) {
-  
+
   const headers = buildHeaders(token);
   const dumpId = isDebugDumpEnabled() ? createDumpId('stream') : null;
   const streamCollector = dumpId ? createStreamCollector() : null;
@@ -194,7 +195,7 @@ export async function generateAssistantResponse(requestBody, token, callback) {
     onEvent: callback,
     onRawChunk: (chunk) => collectStreamChunk(streamCollector, chunk)
   });
-  
+
   try {
     if (useAxios) {
       await runAxiosSseStream({
@@ -253,14 +254,14 @@ export async function getAvailableModels() {
   if (modelListCache && (now - modelListCacheTime) < ttl) {
     return modelListCache;
   }
-  
+
   const token = await tokenManager.getToken();
   if (!token) {
     // 没有 token 时返回默认模型列表
     logger.warn('没有可用的 token，返回默认模型列表');
     return getDefaultModelList();
   }
-  
+
   const headers = buildHeaders(token);
   const data = await fetchRawModels(headers, token);
   if (!data) {
@@ -275,7 +276,7 @@ export async function getAvailableModels() {
     created,
     owned_by: 'google'
   }));
-  
+
   // 添加默认模型（如果 API 返回的列表中没有）
   const existingIds = new Set(modelList.map(m => m.id));
   for (const defaultModel of DEFAULT_MODELS) {
@@ -288,18 +289,18 @@ export async function getAvailableModels() {
       });
     }
   }
-  
+
   const result = {
     object: 'list',
     data: modelList
   };
-  
+
   // 更新缓存
   modelListCache = result;
   modelListCacheTime = now;
   const currentTTL = getModelCacheTTL();
   logger.info(`模型列表已缓存 (有效期: ${currentTTL / 1000}秒, 模型数量: ${modelList.length})`);
-  
+
   return result;
 }
 
@@ -324,12 +325,12 @@ export async function getModelsWithQuotas(token) {
       };
     }
   });
-  
+
   return quotas;
 }
 
 export async function generateAssistantResponseNoStream(requestBody, token) {
-  
+
   const headers = buildHeaders(token);
   const dumpId = isDebugDumpEnabled() ? createDumpId('no_stream') : null;
   if (dumpId) await dumpFinalRequest(dumpId, requestBody);
@@ -361,18 +362,18 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
   });
 
   const usageData = toOpenAIUsage(data.response?.usageMetadata);
-  
+
   // 将新的签名和思考内容写入全局缓存（按 model），供后续请求兜底使用
   const sessionId = requestBody.request?.sessionId;
   const model = requestBody.model;
   const hasTools = parsed.toolCalls.length > 0;
   const isImage = isImageModel(model);
-  
+
   // 判断是否应该缓存签名
   if (sessionId && model && shouldCacheSignature({ hasTools, isImageModel: isImage })) {
     // 获取最终使用的签名（优先使用工具签名，回退到思维签名）
     let finalSignature = parsed.reasoningSignature;
-    
+
     // 工具签名：取最后一个带 thoughtSignature 的工具作为缓存源（更接近"最新"）
     if (hasTools) {
       for (let i = parsed.toolCalls.length - 1; i >= 0; i--) {
@@ -383,7 +384,7 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
         }
       }
     }
-    
+
     if (finalSignature) {
       const cachedContent = parsed.reasoningContent || ' ';
       setSignature(sessionId, model, finalSignature, cachedContent, { hasTools, isImageModel: isImage });
@@ -396,7 +397,7 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
     markdown += parsed.imageUrls.map(url => `![image](${url})`).join('\n\n');
     return { content: markdown, reasoningContent: parsed.reasoningContent, reasoningSignature: parsed.reasoningSignature, toolCalls: parsed.toolCalls, usage: usageData };
   }
-  
+
   return { content: parsed.content, reasoningContent: parsed.reasoningContent, reasoningSignature: parsed.reasoningSignature, toolCalls: parsed.toolCalls, usage: usageData };
 }
 
@@ -404,7 +405,7 @@ export async function generateImageForSD(requestBody, token) {
   const headers = buildHeaders(token);
   let data;
   //console.log(JSON.stringify(requestBody,null,2));
-  
+
   try {
     if (useAxios) {
       data = (await httpRequest({
@@ -424,10 +425,10 @@ export async function generateImageForSD(requestBody, token) {
   } catch (error) {
     await handleApiError(error, token);
   }
-  
+
   const parts = data.response?.candidates?.[0]?.content?.parts || [];
   const images = parts.filter(p => p.inlineData).map(p => p.inlineData.data);
-  
+
   return images;
 }
 

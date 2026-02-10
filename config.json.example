@@ -7,7 +7,7 @@
     "memoryThreshold": 50
   },
   "rotation": {
-    "strategy": "request_count",
+    "strategy": "round_robin",
     "requestCount": 50
   },
   "log": {
@@ -16,7 +16,7 @@
     "maxMemory": 500
   },
   "api": {
-    "use": "sandbox",
+    "use": "production",
     "sandbox": {
       "url": "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse",
       "modelsUrl": "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
@@ -43,7 +43,7 @@
   },
   "other": {
     "timeout": 300000,
-    "retryTimes": 3,
+    "retryTimes": 10,
     "forceIPv4": false,
     "skipProjectIdFetch": false,
     "useNativeAxios": false,

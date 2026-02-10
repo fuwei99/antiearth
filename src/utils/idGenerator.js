@@ -1,7 +1,10 @@
 import { randomUUID, createHash, randomBytes } from 'crypto';
 
 function generateRequestId() {
-  return `agent-${randomUUID()}`;
+  const timestamp = Date.now();
+  const uuid = randomUUID();
+  const number = Math.floor(Math.random() * 10);
+  return `agent/${timestamp}/${uuid}/${number}`;
 }
 
 function generateSessionId() {

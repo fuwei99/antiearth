@@ -138,7 +138,10 @@ export function modelMapping(modelName) {
 
   // Original logic (kept for backward compatibility)
   if (modelName === 'claude-sonnet-4-5-thinking') return 'claude-sonnet-4-5';
-  if (modelName === 'claude-opus-4-5') return 'claude-opus-4-5-thinking';
+  // if (modelName === 'claude-opus-4-5') return 'claude-opus-4-5-thinking';
+  if (modelName === 'claude-opus-4-5') return 'claude-opus-4-6-thinking';
+  if (modelName === 'claude-opus-4-5-thinking') return 'claude-opus-4-6-thinking';
+  if (modelName === 'claude-opus-4-6') return 'claude-opus-4-6-thinking';
   if (modelName === 'gemini-2.5-flash-thinking') return 'gemini-2.5-flash';
   return modelName;
 }
