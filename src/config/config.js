@@ -230,12 +230,14 @@ const DEFAULT_API_CONFIGS = {
     url: 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse',
     modelsUrl: 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels',
     noStreamUrl: 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:generateContent',
+    recordTrajectory: 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:recordTrajectoryAnalytics',
     host: 'daily-cloudcode-pa.sandbox.googleapis.com'
   },
   production: {
     url: 'https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse',
     modelsUrl: 'https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels',
     noStreamUrl: 'https://daily-cloudcode-pa.googleapis.com/v1internal:generateContent',
+    recordTrajectory: 'https://daily-cloudcode-pa.googleapis.com/v1internal:recordTrajectoryAnalytics',
     host: 'daily-cloudcode-pa.googleapis.com'
   }
 };
@@ -264,6 +266,7 @@ function getActiveApiConfig(jsonConfig) {
     url: customConfig?.url || defaultConfig.url,
     modelsUrl: customConfig?.modelsUrl || defaultConfig.modelsUrl,
     noStreamUrl: customConfig?.noStreamUrl || defaultConfig.noStreamUrl,
+    recordTrajectory: customConfig?.recordTrajectory || defaultConfig.recordTrajectory,
     host: customConfig?.host || defaultConfig.host,
     userAgent: jsonConfig.api?.userAgent || 'antigravity/1.15.8 windows/amd64'
   };

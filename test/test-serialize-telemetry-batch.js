@@ -1,0 +1,10 @@
+import { serializeTelemetryBatch,createTelemetryBatch } from "../src/utils/createTelemetry.js";
+import { sendLog } from "../src/api/client.js";
+import tokenManager from "../src/auth/token_manager.js";
+let token = await tokenManager.getToken();
+let num = 1;
+const Logbody = createTelemetryBatch(num);
+console.log(JSON.stringify(Logbody, null, 2));
+const serializeData = serializeTelemetryBatch(Logbody);
+console.log(serializeData);
+await sendLog(token, num);

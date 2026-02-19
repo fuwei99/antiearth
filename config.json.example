@@ -21,13 +21,15 @@
       "url": "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse",
       "modelsUrl": "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels",
       "noStreamUrl": "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:generateContent",
-      "host": "daily-cloudcode-pa.sandbox.googleapis.com"
+      "host": "daily-cloudcode-pa.sandbox.googleapis.com",
+      "recordTrajectory": "https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:recordTrajectoryAnalytics"
     },
     "production": {
       "url": "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse",
       "modelsUrl": "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels",
       "noStreamUrl": "https://daily-cloudcode-pa.googleapis.com/v1internal:generateContent",
-      "host": "daily-cloudcode-pa.googleapis.com"
+      "host": "daily-cloudcode-pa.googleapis.com",
+      "recordTrajectory": "https://daily-cloudcode-pa.googleapis.com/v1internal:recordTrajectoryAnalytics"
     },
     "userAgent": "antigravity/1.15.8 windows/amd64"
   },
