@@ -31,7 +31,7 @@
       "host": "daily-cloudcode-pa.googleapis.com",
       "recordTrajectory": "https://daily-cloudcode-pa.googleapis.com/v1internal:recordTrajectoryAnalytics"
     },
-    "userAgent": "antigravity/1.15.8 windows/amd64"
+    "userAgent": "antigravity/1.18.3 windows/amd64"
   },
   "defaults": {
     "temperature": 1,

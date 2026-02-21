@@ -11,7 +11,7 @@ function createTelemetryBatch(num, trajectoryId) {
   const now = Date.now();
   const seconds = Math.floor(now / 1000);
   const nanos = (now % 1000) * 1000000;
-  
+
   const sessionId = trajectoryId;
   const conversationId = randomUUID();
   const messageId = randomUUID();
@@ -30,7 +30,7 @@ function createTelemetryBatch(num, trajectoryId) {
         eventCode: 0,
         metadata: {
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -44,7 +44,7 @@ function createTelemetryBatch(num, trajectoryId) {
               timestamp: { seconds, nanos },
               traceId: traceId1
             },
-            version: "1.16.5",
+            version: "1.18.3",
             app: "antigravity",
             platform: "windows"
           }
@@ -56,7 +56,7 @@ function createTelemetryBatch(num, trajectoryId) {
         eventCode: 0,
         metadata: {
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -79,7 +79,7 @@ function createTelemetryBatch(num, trajectoryId) {
         eventCode: 0,
         metadata: {
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -101,7 +101,7 @@ function createTelemetryBatch(num, trajectoryId) {
         eventCode: 0,
         metadata: {
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -114,7 +114,7 @@ function createTelemetryBatch(num, trajectoryId) {
               timestamp: { seconds, nanos: nanos + 239604100 },
               traceId: traceId2
             },
-            version: "1.16.5",
+            version: "1.18.3",
             app: "antigravity",
             platform: "windows"
           }
@@ -126,7 +126,7 @@ function createTelemetryBatch(num, trajectoryId) {
         eventCode: 0,
         metadata: {
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -185,7 +185,7 @@ function createTelemetryBatch(num, trajectoryId) {
         eventCode: 0,
         metadata: {
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -233,7 +233,7 @@ function createTelemetryBatch(num, trajectoryId) {
         eventCode: 0,
         metadata: {
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -280,7 +280,7 @@ function createTelemetryBatch(num, trajectoryId) {
         eventCode: 0,
         metadata: {
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -338,7 +338,7 @@ function createTelemetryBatch(num, trajectoryId) {
         eventCode: 0,
         metadata: {
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -385,7 +385,7 @@ function createTelemetryBatch(num, trajectoryId) {
         eventCode: 0,
         metadata: {
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -461,7 +461,7 @@ function createTelemetryBatch(num, trajectoryId) {
             messageId: messageId
           },
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -503,7 +503,7 @@ function createTelemetryBatch(num, trajectoryId) {
             messageId: messageId
           },
           appName: "antigravity",
-          version: "1.16.5",
+          version: "1.18.3",
           os: "windows",
           arch: "amd64",
           tier: "g1-pro-tier",
@@ -519,10 +519,10 @@ function serializeTelemetryBatch(telemetryData, protoPath = join(__dirname, 'pro
   try {
     const root = protobuf.loadSync(protoPath);
     const TelemetryBatch = root.lookupType('TelemetryBatch');
-    
+
     const message = TelemetryBatch.create(telemetryData);
     const buffer = TelemetryBatch.encode(message).finish();
-    
+
     return { success: true, data: buffer };
   } catch (error) {
     return { success: false, error: error.message };
