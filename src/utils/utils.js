@@ -45,7 +45,7 @@ const EXCLUDED_KEYS = new Set([
   // Gemini API 不支持的高级 JSON Schema 字段
   'propertyNames', 'patternProperties', 'dependencies',
   'if', 'then', 'else', 'not', 'contentMediaType', 'contentEncoding',
-  'definitions', '$defs', '$ref', '$id', '$comment'
+  'definitions', '$defs', '$ref', '$id', '$comment', 'undefined'
 ]);
 
 // 需要转换为大写的 type 值映射
@@ -138,6 +138,7 @@ export function modelMapping(modelName) {
 
   // Original logic (kept for backward compatibility)
   if (modelName === 'claude-sonnet-4-5-thinking') return 'claude-sonnet-4-5';
+  if (modelName === 'claude-sonnet-4-6-thinking') return 'claude-sonnet-4-6';
   // if (modelName === 'claude-opus-4-5') return 'claude-opus-4-5-thinking';
   if (modelName === 'claude-opus-4-5') return 'claude-opus-4-6-thinking';
   if (modelName === 'claude-opus-4-5-thinking') return 'claude-opus-4-6-thinking';
@@ -253,6 +254,13 @@ export function getDefaultIp() {
     }
   }
   return '127.0.0.1';
+}
+
+export function generateCreatedAt() {
+  const now = new Date();
+  const isoString = now.toISOString();
+  const nanos = String(now.getMilliseconds()).padStart(3, '0') + '000000';
+  return isoString.replace(/\.\d{3}Z$/, `.${nanos}Z`);
 }
 
 // 重导出主要函数
