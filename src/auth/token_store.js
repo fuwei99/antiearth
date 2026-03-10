@@ -42,11 +42,27 @@ class TokenStore {
     try {
       await fs.access(this.filePath);
     } catch (e) {
-      // 文件不存在时创建带盐值的空结构
-      const initialData = {
+      // 文件不存在时...
+      let initialData = {
         salt: generateSalt(),
         tokens: []
       };
+
+      if (process.env.ACCOUNT) {
+        try {
+          const accountEnv = JSON.parse(process.env.ACCOUNT);
+          if (Array.isArray(accountEnv)) {
+            initialData.tokens = accountEnv;
+            log.info('✓ 已从 ACCOUNT 环境变量加载账号列表数据');
+          } else if (accountEnv && typeof accountEnv === 'object') {
+            initialData = { ...initialData, ...accountEnv };
+            log.info('✓ 已从 ACCOUNT 环境变量加载完整账号配置');
+          }
+        } catch (envErr) {
+          log.error('解析 ACCOUNT 环境变量失败，使用空配置:', envErr.message);
+        }
+      }
+
       await fs.writeFile(this.filePath, JSON.stringify(initialData, null, 2), 'utf8');
       log.info('✓ 已创建账号配置文件（含安全盐值）');
     }
@@ -102,12 +118,12 @@ class TokenStore {
    */
   async getSalt() {
     if (this._salt) return this._salt;
-    
+
     await this._ensureFileExists();
     try {
       const data = await fs.readFile(this.filePath, 'utf8');
       const parsed = JSON.parse(data || '{}');
-      
+
       // 兼容旧格式：如果是数组，迁移到新格式
       if (Array.isArray(parsed)) {
         const newData = {
@@ -119,7 +135,7 @@ class TokenStore {
         this._salt = newData.salt;
         return this._salt;
       }
-      
+
       // 如果没有盐值，生成一个
       if (!parsed.salt) {
         parsed.salt = generateSalt();
@@ -127,7 +143,7 @@ class TokenStore {
         await fs.writeFile(this.filePath, JSON.stringify(parsed, null, 2), 'utf8');
         log.info('✓ 已为账号配置文件添加安全盐值');
       }
-      
+
       this._salt = parsed.salt;
       return this._salt;
     } catch (error) {
@@ -157,7 +173,7 @@ class TokenStore {
     try {
       const data = await fs.readFile(this.filePath, 'utf8');
       const parsed = JSON.parse(data || '{}');
-      
+
       // 兼容旧格式：如果是数组，直接使用
       if (Array.isArray(parsed)) {
         this._cache = parsed;
@@ -194,14 +210,14 @@ class TokenStore {
    */
   async writeAll(tokens) {
     const normalized = Array.isArray(tokens) ? tokens : [];
-    
+
     // 使用队列确保写入顺序，避免并发写入导致数据损坏
     const writeOperation = async () => {
       await this._ensureFileExists();
-      
+
       // 确保盐值已加载
       const salt = await this.getSalt();
-      
+
       try {
         const fileData = {
           salt: salt,
@@ -216,7 +232,7 @@ class TokenStore {
         throw error;
       }
     };
-    
+
     // 将写入操作加入队列
     this._writeQueue = this._writeQueue
       .then(writeOperation)
@@ -224,7 +240,7 @@ class TokenStore {
         // 捕获错误但不中断队列
         log.error('写入队列操作失败:', error.message);
       });
-    
+
     return this._writeQueue;
   }
 
@@ -278,7 +294,7 @@ class TokenStore {
         if (!mergedTokens) return;
         await this._ensureFileExists();
         const salt = await this.getSalt();
-        
+
         try {
           const fileData = {
             salt: salt,

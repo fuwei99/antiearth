@@ -60,7 +60,7 @@ export function normalizeOpenAIParameters(params = {}) {
  */
 export function normalizeClaudeParameters(params = {}) {
   const { max_tokens, temperature, top_p, top_k, thinking, ...rest } = params;
-  
+
   const normalized = {
     max_tokens: max_tokens ?? config.defaults.max_tokens,
     temperature: temperature ?? config.defaults.temperature,
@@ -162,7 +162,7 @@ export function toGenerationConfig(normalized, enableThinking, actualModelName) 
   }
 
   if (actualEnableThinking && maxOutputTokens <= thinkingBudget) {
-    if (maxOutputTokens <= 1024){
+    if (maxOutputTokens <= 1024) {
       maxOutputTokens = 2048;
       thinkingBudget = 1024;
     } else {

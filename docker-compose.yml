@@ -13,6 +13,7 @@ services:
       - PROXY=${PROXY:-}
       - SYSTEM_INSTRUCTION=${SYSTEM_INSTRUCTION:-}
       - IMAGE_BASE_URL=${IMAGE_BASE_URL:-}
+      - ACCOUNT=${ACCOUNT:-}
     volumes:
       - ./data:/app/data
       - ./public/images:/app/public/images

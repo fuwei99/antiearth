@@ -329,7 +329,7 @@ class GeminiCliTokenManager {
       });
 
       const data = response.data;
-      
+
       // 检查是否有 currentTier（表示用户已激活）
       if (data.currentTier) {
         const projectId = data.cloudaicompanionProject;
@@ -347,7 +347,7 @@ class GeminiCliTokenManager {
     } catch (error) {
       const status = error.response?.status || error.status || 500;
       log.error(`[GeminiCLI] 获取 projectId 失败 (${status}):`, error.message);
-      
+
       if (status === 403 || status === 401) {
         throw new TokenError('Token 无权限获取 projectId', tokenId, status);
       }
@@ -662,7 +662,7 @@ class GeminiCliTokenManager {
 
     // 更新并保存
     tokenData.projectId = projectId;
-    
+
     // 更新文件
     const allTokens = await this.store.readAll();
     const salt = await this.store.getSalt();
