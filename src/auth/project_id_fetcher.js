@@ -1,7 +1,6 @@
-import axios from 'axios';
 import { log } from '../utils/logger.js';
 import config from '../config/config.js';
-import { buildAxiosRequestConfig } from '../utils/httpClient.js';
+import requesterManager from '../utils/requesterManager.js';
 
 /**
  * ProjectId 获取类
@@ -12,6 +11,81 @@ class ProjectIdFetcher {
     this.maxRetries = options.maxRetries || 5;
     this.retryDelay = options.retryDelay || 2000;
     this.timeout = options.timeout || 30000;
+  }
+
+  /**
+   * 完整的账号验证流程（重构版）
+   * @param {Object} token - Token 对象
+   * @returns {Promise<{projectId: string|null, sub: string, hasQuota: boolean, source: string, isActivated: boolean}>}
+   */
+  async validateAccount(token) {
+    const result = {
+      projectId: null,
+      sub: 'free-tier',
+      hasQuota: false,
+      source: 'none',
+      isActivated: false
+    };
+
+    // 步骤1: 尝试 loadCodeAssist
+    try {
+      const loadResult = await this._tryLoadCodeAssist(token);
+      
+      // 场景2/3: 已激活账号（loadCodeAssist 返回 currentTier 和 projectId）
+      if (loadResult?.projectId) {
+        result.projectId = loadResult.projectId;
+        result.sub = loadResult.sub;
+        result.hasQuota = true;
+        result.source = 'loadCodeAssist';
+        result.isActivated = true;
+        
+        log.info(`[validateAccount] 场景2/3: 已激活账号，sub=${result.sub}`);
+        return result;
+      }
+      
+      // loadCodeAssist 返回了 currentTier 但没有 projectId（异常情况）
+      if (loadResult?.sub && loadResult.sub !== 'free-tier') {
+        log.warn('[validateAccount] 账号已激活但无 projectId（异常）');
+        result.sub = loadResult.sub;
+        result.isActivated = true;
+        result.hasQuota = false;
+        return result;
+      }
+      
+    } catch (err) {
+      log.warn(`[validateAccount] loadCodeAssist 失败: ${err.message}`);
+    }
+
+    // 步骤2: loadCodeAssist 未返回有效结果，尝试 onboardUser
+    log.info('[validateAccount] loadCodeAssist 未激活，尝试 onboardUser');
+    
+    try {
+      const onboardResult = await this._tryOnboardUser(token);
+      
+      // 场景4: Pro账号未激活（onboardUser 可以获取 projectId）
+      if (onboardResult?.projectId) {
+        result.projectId = onboardResult.projectId;
+        result.sub = 'g1-pro-tier'; // Pro账号的默认订阅
+        result.hasQuota = true;
+        result.source = 'onboardUser';
+        result.isActivated = false;
+        
+        log.info('[validateAccount] 场景4: Pro未激活账号');
+        return result;
+      }
+      
+    } catch (err) {
+      log.warn(`[validateAccount] onboardUser 失败: ${err.message}`);
+    }
+
+    // 步骤3: 两种方式都失败，场景1: 普通未激活账号
+    log.info('[validateAccount] 场景1: 普通未激活账号（free-tier）');
+    result.sub = 'free-tier';
+    result.hasQuota = false;
+    result.source = 'none';
+    result.isActivated = false;
+    
+    return result;
   }
 
   /**
@@ -48,7 +122,7 @@ class ProjectIdFetcher {
   /**
    * 尝试通过 loadCodeAssist 获取 projectId
    * @param {Object} token - Token 对象
-   * @returns {Promise<{projectId: string, sub: string}|null>} projectId 和 sub 或 null
+   * @returns {Promise<{projectId: string|null, sub: string, isActivated: boolean}|null>} projectId、sub 和激活状态
    * @private
    */
   async _tryLoadCodeAssist(token) {
@@ -63,9 +137,8 @@ class ProjectIdFetcher {
     };
 
     log.info(`[loadCodeAssist] 请求: ${requestUrl}`);
-    const response = await axios(buildAxiosRequestConfig({
+    const response = await requesterManager.fetch(requestUrl, {
       method: 'POST',
-      url: requestUrl,
       headers: {
         'Host': apiHost,
         'User-Agent': config.api.userAgent,
@@ -73,28 +146,32 @@ class ProjectIdFetcher {
         'Content-Type': 'application/json',
         'Accept-Encoding': 'gzip'
       },
-      data: JSON.stringify(requestBody),
-      timeout: this.timeout
-    }));
+      body: requestBody,
+      okStatus: [200]
+    });
 
     const data = response.data;
 
     // 检查是否有 currentTier（表示用户已激活）
-    let sub = 'free-tier';
     if (data?.currentTier) {
       log.info('[loadCodeAssist] 用户已激活');
-      const projectId = data.cloudaicompanionProject;
-      if (projectId) {
-        log.info(`[loadCodeAssist] 成功获取 projectId: ${projectId}`);
-        sub = data.currentTier.id;
-        return { projectId, sub };
-      }
-      log.warn('[loadCodeAssist] 响应中无 projectId');
-      return null;
+      const projectId = data.cloudaicompanionProject || null;
+      const sub = data.currentTier.id || 'free-tier';
+      
+      return {
+        projectId,
+        sub,
+        isActivated: true
+      };
     }
 
+    // 未激活
     log.info('[loadCodeAssist] 用户未激活 (无 currentTier)');
-    return null;
+    return {
+      projectId: null,
+      sub: 'free-tier',
+      isActivated: false
+    };
   }
 
   /**
@@ -131,9 +208,8 @@ class ProjectIdFetcher {
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       log.info(`[onboardUser] 轮询尝试 ${attempt}/${this.maxRetries}`);
 
-      const response = await axios(buildAxiosRequestConfig({
+      const response = await requesterManager.fetch(requestUrl, {
         method: 'POST',
-        url: requestUrl,
         headers: {
           'Host': apiHost,
           'User-Agent': config.api.userAgent,
@@ -141,9 +217,9 @@ class ProjectIdFetcher {
           'Content-Type': 'application/json',
           'Accept-Encoding': 'gzip'
         },
-        data: JSON.stringify(requestBody),
-        timeout: this.timeout
-      }));
+        body: requestBody,
+        okStatus: [200]
+      });
 
       const data = response.data;
 
@@ -197,9 +273,8 @@ class ProjectIdFetcher {
     log.info(`[_getOnboardTier] 请求: ${requestUrl}`);
 
     try {
-      const response = await axios(buildAxiosRequestConfig({
+      const response = await requesterManager.fetch(requestUrl, {
         method: 'POST',
-        url: requestUrl,
         headers: {
           'Host': apiHost,
           'User-Agent': config.api.userAgent,
@@ -207,9 +282,9 @@ class ProjectIdFetcher {
           'Content-Type': 'application/json',
           'Accept-Encoding': 'gzip'
         },
-        data: JSON.stringify(requestBody),
-        timeout: this.timeout
-      }));
+        body: requestBody,
+        okStatus: [200]
+      });
 
       const data = response.data;
 

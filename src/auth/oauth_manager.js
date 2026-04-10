@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import log from '../utils/logger.js';
 import tokenManager from './token_manager.js';
 import requesterManager from '../utils/requesterManager.js';
+import ProjectIdFetcher from './project_id_fetcher.js';
 import { OAUTH_CONFIG, OAUTH_SCOPES, GEMINICLI_OAUTH_CONFIG, GEMINICLI_OAUTH_SCOPES } from '../constants/oauth.js';
 
 class OAuthManager {
@@ -90,25 +91,13 @@ class OAuthManager {
 	}
 
 	/**
-	 * 资格校验：尝试获取projectId
+	 * 使用 ProjectIdFetcher 的新方法进行完整验证
+	 * @param {string} accessToken - 访问令牌
+	 * @returns {Promise<{projectId: string|null, sub: string, hasQuota: boolean, source: string, isActivated: boolean}>}
 	 */
-	async validateAndGetProjectId(accessToken) {
-		try {
-			log.info('正在验证账号资格...');
-			const {projectId,sub} = await tokenManager.fetchProjectId({ access_token: accessToken }) || {};
-
-			if (projectId === undefined || projectId === null) {
-				log.warn('该账号无法获取 projectId，可能无资格或需要稍后重试');
-				return { projectId: null, hasQuota: false, sub };
-			}
-
-			log.info('账号验证通过，projectId: ' + projectId);
-			return { projectId, hasQuota: true, sub };
-		} catch (err) {
-			log.error('验证账号资格失败: ' + err.message);
-			sub = "free-tier";
-			return { projectId: null, hasQuota: false,sub };
-		}
+	async validateAccount(accessToken) {
+		const fetcher = new ProjectIdFetcher();
+		return await fetcher.validateAccount({ access_token: accessToken });
 	}
 
 	/**
@@ -139,12 +128,16 @@ class OAuthManager {
 			log.info(`[${mode}] 获取到用户邮箱: ${email}`);
 		}
 
-		// 3. 资格校验（仅 antigravity 模式需要 projectId）
+		// 3. 资格校验（仅 antigravity 模式需要）
 		if (mode === 'antigravity') {
-			const { projectId, hasQuota,sub } = await this.validateAndGetProjectId(account.access_token);
-			account.projectId = projectId;
-			account.hasQuota = hasQuota;
-			account.sub = sub;
+			const validation = await this.validateAccount(account.access_token);
+			
+			account.projectId = validation.projectId;
+			account.sub = validation.sub;
+			account.hasQuota = validation.hasQuota;
+			account.isActivated = validation.isActivated;
+			
+			log.info(`[${mode}] 账号验证完成: sub=${validation.sub}, source=${validation.source}`);
 		}
 
 		account.enable = true;
