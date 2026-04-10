@@ -146,6 +146,7 @@ function buildHeaders(token) {
   return {
     'Host': config.api.host,
     'User-Agent': config.api.userAgent,
+    'Transfer-Encoding': 'chunked',
     'Authorization': `Bearer ${token.access_token}`,
     'Content-Type': 'application/json',
     'Accept-Encoding': 'gzip'
@@ -217,8 +218,8 @@ export async function generateAssistantResponse(requestBody, token, callback) {
       await dumpStreamResponse(dumpId, streamCollector);
     }
     sendRecordCodeAssistMetrics(token, trajectoryId).catch(err => logger.warn('发送RecordCodeAssistMetrics失败:', err.message));
-    sendRecordTrajectoryAnalytics(token, num, trajectoryId,messageId,conversationId, modelName).catch(err => logger.warn('发送轨迹分析失败:', err.message));
-    sendLog(token,num,trajectoryId,conversationId,messageId).catch(err => logger.warn('发送log失败:', err.message));
+    sendRecordTrajectoryAnalytics(token, num, trajectoryId, messageId, conversationId, modelName).catch(err => logger.warn('发送轨迹分析失败:', err.message));
+    sendLog(token, num, trajectoryId, conversationId, messageId).catch(err => logger.warn('发送log失败:', err.message));
     sendCheckPoint(token).catch(err => logger.warn('发送checkPoint失败:', err.message));;
   } catch (error) {
     try { processor.close(); } catch { }
@@ -345,8 +346,8 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
       rawFormat: 'json'
     });
     sendRecordCodeAssistMetrics(token, trajectoryId).catch(err => logger.warn('发送RecordCodeAssistMetrics失败:', err.message));
-    sendRecordTrajectoryAnalytics(token, num, trajectoryId,messageId,conversationId, modelName).catch(err => logger.warn('发送轨迹分析失败:', err.message));
-    sendLog(token,num,trajectoryId,conversationId,messageId).catch(err => logger.warn('发送log失败:', err.message));
+    sendRecordTrajectoryAnalytics(token, num, trajectoryId, messageId, conversationId, modelName).catch(err => logger.warn('发送轨迹分析失败:', err.message));
+    sendLog(token, num, trajectoryId, conversationId, messageId).catch(err => logger.warn('发送log失败:', err.message));
   } catch (error) {
     await handleApiError(error, token, dumpId);
   }
@@ -407,7 +408,7 @@ export async function generateImageForSD(requestBody, token) {
   const messageId = randomUUID();
   const modelName = requestBody.model;
   const headers = buildHeaders(token);
-  headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody),'utf-8'));
+  headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody), 'utf-8'));
   let num = Math.floor(Math.random() * QA_PAIRS.length);
 
   //console.log(JSON.stringify(requestBody,null,2));
@@ -424,8 +425,8 @@ export async function generateImageForSD(requestBody, token) {
     await handleApiError(error, token);
   }
   sendRecordCodeAssistMetrics(token, trajectoryId).catch(err => logger.warn('发送RecordCodeAssistMetrics失败:', err.message));
-  sendRecordTrajectoryAnalytics(token, num, trajectoryId,messageId,conversationId, modelName).catch(err => logger.warn('发送轨迹分析失败:', err.message));
-  sendLog(token,num,trajectoryId,conversationId,messageId).catch(err => logger.warn('发送log失败:', err.message));
+  sendRecordTrajectoryAnalytics(token, num, trajectoryId, messageId, conversationId, modelName).catch(err => logger.warn('发送轨迹分析失败:', err.message));
+  sendLog(token, num, trajectoryId, conversationId, messageId).catch(err => logger.warn('发送log失败:', err.message));
 
   const parts = data.response?.candidates?.[0]?.content?.parts || [];
   const images = parts.filter(p => p.inlineData).map(p => p.inlineData.data);
@@ -433,8 +434,8 @@ export async function generateImageForSD(requestBody, token) {
   return images;
 }
 
-export async function sendRecordTrajectoryAnalytics(token, num, trajectoryId,executionId,cascadeId, modelName = "claude-opus-4-6-thinking") {
-  const trajectorybody = generateTrajectorybody(num, trajectoryId,executionId,cascadeId, modelName, token);
+export async function sendRecordTrajectoryAnalytics(token, num, trajectoryId, executionId, cascadeId, modelName = "claude-opus-4-6-thinking") {
+  const trajectorybody = generateTrajectorybody(num, trajectoryId, executionId, cascadeId, modelName, token);
   const headers = buildHeaders(token);
   headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(trajectorybody)));
   try {
@@ -449,22 +450,22 @@ export async function sendRecordTrajectoryAnalytics(token, num, trajectoryId,exe
   }
 }
 
-export async function sendLog(token, num, trajectoryId, conversationId,messageId) {
+export async function sendLog(token, num, trajectoryId, conversationId, messageId) {
   const sessionId = trajectoryId;
   //const conversationId = randomUUID();
-  
+
   const logs = [
     createLog2(conversationId, token, sessionId),
-    createTelemetryBatch(num, sessionId,conversationId,messageId,token.sub),
+    createTelemetryBatch(num, sessionId, conversationId, messageId, token.sub),
     createLog1(conversationId, token, sessionId)
   ];
-  
+
   const headers = buildHeaders(token);
   headers["Host"] = "play.googleapis.com";
   headers["User-Agent"] = "Go-http-client/1.1";
   headers["Content-Type"] = "application/octet-stream";
   headers["Accept-Encoding"] = "gzip";
-  
+
   // TLS 请求器暂不支持二进制 body，此处固定使用 axios
   try {
     for (const log of logs) {
@@ -474,7 +475,7 @@ export async function sendLog(token, num, trajectoryId, conversationId,messageId
       }
       const serializeLogBody = serializeData.data;
       headers["Content-Length"] = String(serializeLogBody.length);
-      
+
       await axios({
         method: 'POST',
         url: "https://play.googleapis.com/log",
@@ -490,7 +491,7 @@ export async function sendLog(token, num, trajectoryId, conversationId,messageId
 export async function sendRecordCodeAssistMetrics(token, trajectoryId) {
   const requestBody = buildRecordCodeAssistMetricsBody(token, trajectoryId);
   const headers = buildHeaders(token);
-  headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody),'utf-8'));
+  headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody), 'utf-8'));
   try {
     await requesterManager.fetch(config.api.recordCodeAssistMetrics, {
       method: 'POST',
@@ -506,7 +507,7 @@ export async function sendRecordCodeAssistMetrics(token, trajectoryId) {
 export async function sendClientRegister(token) {
   const requestBody = buildClientRegister(token);
   const headers = buildClientRegisterHeaders(token);
-  headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody),'utf-8'));
+  headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody), 'utf-8'));
   try {
     await requesterManager.fetch(config.api.unleash.register, {
       method: 'POST',
@@ -536,7 +537,7 @@ export async function sendClientFeature(token) {
 export async function sendFrontEnd(token) {
   const requestBody = buildFrontEnd(token);
   const headers = buildFrontEndHeaders(token);
-  headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody),'utf-8'));
+  headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody), 'utf-8'));
   try {
     await requesterManager.fetch(config.api.unleash.frontend, {
       method: 'POST',
@@ -552,10 +553,10 @@ export async function sendFrontEnd(token) {
 export async function sendCheckPoint(token) {
   const requestBody = generateCheckpointBody(token);
   const headers = buildHeaders(token);
-  headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody),'utf-8'));
-  if (checkPointList.has(token.sessionId)){
+  headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody), 'utf-8'));
+  if (checkPointList.has(token.sessionId)) {
     return;
-  }else{
+  } else {
     checkPointList.add(token.sessionId);
   }
   try {
