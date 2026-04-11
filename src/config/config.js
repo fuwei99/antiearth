@@ -148,20 +148,62 @@ SYSTEM_INSTRUCTION=${DEFAULT_SYSTEM_INSTRUCTION}
   log.info('✓ 已创建 .env 文件，包含默认反代系统提示词');
 }
 
-// 确保 config.json 存在（如果缺失则从 config.json.example 复制）
-if (!fs.existsSync(configJsonPath) && fs.existsSync(configJsonExamplePath)) {
-  fs.copyFileSync(configJsonExamplePath, configJsonPath);
-  log.info('✓ 已从 config.json.example 创建 config.json');
+// 加载 .env（指定路径），因为稍后要读取其中的 CONFIG 等变量
+dotenv.config({ path: envPath });
+
+// 确保 config.json 存在（如果缺失则从 example 复制并尝试合并 CONFIG 环境变量）
+if (!fs.existsSync(configJsonPath)) {
+  let initialConfig = {};
+  
+  if (fs.existsSync(configJsonExamplePath)) {
+    try {
+      initialConfig = JSON.parse(fs.readFileSync(configJsonExamplePath, 'utf8'));
+    } catch (e) {
+      log.warn('解析 config.json.example 失败:', e.message);
+    }
+  }
+
+  // 尝试合并 CONFIG 环境变量
+  if (process.env.CONFIG) {
+    try {
+      const configEnvData = JSON.parse(process.env.CONFIG);
+      initialConfig = deepMerge(initialConfig, configEnvData);
+      log.info('✓ 已从 CONFIG 环境变量加载初始配置');
+    } catch (envErr) {
+      log.error('解析 CONFIG 环境变量失败，将忽略该配置:', envErr.message);
+    }
+  }
+
+  fs.writeFileSync(configJsonPath, JSON.stringify(initialConfig, null, 2), 'utf8');
+  if (process.env.CONFIG) {
+    log.info('✓ 已基于 CONFIG 环境变量和 example 创建 config.json');
+  } else {
+    log.info('✓ 已从 config.json.example 创建 config.json');
+  }
 }
 
 // 加载 config.json
 let jsonConfig = {};
 if (fs.existsSync(configJsonPath)) {
-  jsonConfig = JSON.parse(fs.readFileSync(configJsonPath, 'utf8'));
+  try {
+    jsonConfig = JSON.parse(fs.readFileSync(configJsonPath, 'utf8'));
+  } catch (e) {
+    log.error('解析 config.json 失败:', e.message);
+  }
 }
 
-// 加载 .env（指定路径）
-dotenv.config({ path: envPath });
+// 动态内存合并 CONFIG 环境变量（作为最高优先级，每次启动时都会从环境变量覆盖相应配置值）
+// 不写入磁盘，避免覆盖用户在管理面板单独修改的其他字段
+if (process.env.CONFIG) {
+  try {
+    const configEnvData = JSON.parse(process.env.CONFIG);
+    jsonConfig = deepMerge(jsonConfig, configEnvData);
+    log.info('✓ 已将 CONFIG 环境变量合并到当前配置中（仅内存覆盖）');
+  } catch (e) {
+    // 忽略，上面初始化时已经打印过错误了
+  }
+}
+
 
 // 处理系统提示词中的转义字符
 // dotenv 不会自动将 \n 字符串转换为实际换行符，我们需要手动处理
