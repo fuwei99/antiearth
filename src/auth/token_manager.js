@@ -12,6 +12,7 @@ import { TokenError } from '../utils/errors.js';
 import quotaManager from './quota_manager.js';
 import tokenCooldownManager from './token_cooldown_manager.js';
 import { randomUUID } from 'crypto';
+import { smartParseToken } from '../utils/tokenParser.js';
 
 /**
  * Token 管理器（重构版）
@@ -68,6 +69,9 @@ class TokenManager {
     try {
       log.info('正在初始化token管理器...');
 
+      // 0. 检查环境变量自动导入
+      await this._importFromEnv();
+
       // 1. 读取所有 token
       const tokenArray = await this.store.readAll();
 
@@ -112,6 +116,73 @@ class TokenManager {
     } catch (error) {
       log.error('初始化token失败:', error.message);
       this.pool.clear();
+    }
+  }
+
+  /**
+   * 从环境变量 ACCOUNT 中自动导入账号
+   * @private
+   */
+  async _importFromEnv() {
+    const accEnv = process.env.ACCOUNT || process.env.ACCOUNTS;
+    if (!accEnv) return;
+
+    try {
+      log.info('检测到 ACCOUNT 环境变量，正在尝试自动导入...');
+      let data;
+      try {
+        data = JSON.parse(accEnv);
+      } catch (e) {
+        log.error('ACCOUNT 环境变量 JSON 解析失败:', e.message);
+        return;
+      }
+
+      const importTokensRaw = Array.isArray(data) ? data : (data.tokens || []);
+      if (importTokensRaw.length === 0) {
+        log.warn('ACCOUNT 环境变量中未发现有效 Token 列表');
+        return;
+      }
+
+      // 智能解析并规范化
+      const parsedTokens = importTokensRaw
+        .map(t => smartParseToken(t))
+        .filter(t => !!t);
+
+      if (parsedTokens.length === 0) {
+        log.warn('ACCOUNT 环境变量中无合法 Token');
+        return;
+      }
+
+      // 读取现有数据进行合并
+      const existingTokens = await this.store.readAll();
+      const existingRefreshTokens = new Set(existingTokens.map(t => t.refresh_token));
+      
+      let addedCount = 0;
+      let updatedCount = 0;
+
+      for (const token of parsedTokens) {
+        if (existingRefreshTokens.has(token.refresh_token)) {
+          // 更新已存在的 token
+          const index = existingTokens.findIndex(t => t.refresh_token === token.refresh_token);
+          if (index !== -1) {
+            existingTokens[index] = { ...existingTokens[index], ...token };
+            updatedCount++;
+          }
+        } else {
+          // 添加新 token
+          existingTokens.push(token);
+          addedCount++;
+        }
+      }
+
+      if (addedCount > 0 || updatedCount > 0) {
+        await this.store.writeAll(existingTokens);
+        log.info(`✓ 环境变量自动导入成功: 新增 ${addedCount} 个，更新 ${updatedCount} 个`);
+      } else {
+        log.info('环境变量中的 Token 已存在，无需更新');
+      }
+    } catch (error) {
+      log.error('从环境变量导入账号失败:', error.message);
     }
   }
 

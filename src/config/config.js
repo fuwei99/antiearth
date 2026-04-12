@@ -171,7 +171,22 @@ if (fs.existsSync(upstreamJsonPath)) {
 // 加载 config.json（用户偏好配置）
 let jsonConfig = {};
 if (fs.existsSync(configJsonPath)) {
-  jsonConfig = JSON.parse(fs.readFileSync(configJsonPath, 'utf8'));
+  try {
+    jsonConfig = JSON.parse(fs.readFileSync(configJsonPath, 'utf8'));
+  } catch (e) {
+    log.warn(`解析 config.json 失败: ${e.message}，将使用默认配置`);
+  }
+}
+
+// 支持从环境变量 CONFIG 加载配置（优先级更高）
+if (process.env.CONFIG) {
+  try {
+    const configEnvData = JSON.parse(process.env.CONFIG);
+    jsonConfig = deepMerge(jsonConfig, configEnvData);
+    log.info('✓ 已从 CONFIG 环境变量加载配置并覆盖本地设置');
+  } catch (e) {
+    log.error(`解析 CONFIG 环境变量失败: ${e.message}`);
+  }
 }
 
 // 自动清理旧 config.json 中的上游字段（迁移到 upstream.json 后不再需要）
@@ -193,18 +208,6 @@ if (jsonConfig.api) {
 
 // 加载 .env（指定路径）
 dotenv.config({ path: envPath });
-
-// 动态内存合并 CONFIG 环境变量（作为最高优先级，每次启动时都会从环境变量覆盖相应配置值）
-// 不写入磁盘，避免覆盖用户在管理面板单独修改的其他字段
-if (process.env.CONFIG) {
-  try {
-    const configEnvData = JSON.parse(process.env.CONFIG);
-    jsonConfig = deepMerge(jsonConfig, configEnvData);
-    log.info('✓ 已将 CONFIG 环境变量合并到内存配置中（最高优先级）');
-  } catch (e) {
-    log.error('解析 CONFIG 环境变量失败，将忽略该配置:', e.message);
-  }
-}
 
 // 处理系统提示词中的转义字符
 // dotenv 不会自动将 \n 字符串转换为实际换行符，我们需要手动处理
@@ -558,10 +561,26 @@ log.info('✓ 配置加载成功');
 export default config;
 
 export function getConfigJson() {
+  let data = {};
   if (fs.existsSync(configJsonPath)) {
-    return JSON.parse(fs.readFileSync(configJsonPath, 'utf8'));
+    try {
+      data = JSON.parse(fs.readFileSync(configJsonPath, 'utf8'));
+    } catch {
+      data = {};
+    }
   }
-  return {};
+
+  // 同时合并环境变量中的配置，确保返回的是真实运行配置
+  if (process.env.CONFIG) {
+    try {
+      const configEnvData = JSON.parse(process.env.CONFIG);
+      data = deepMerge(data, configEnvData);
+    } catch {
+      // 忽略解析错误
+    }
+  }
+
+  return data;
 }
 
 export function getUpstreamConfig() {
