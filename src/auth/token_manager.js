@@ -236,7 +236,7 @@ class TokenManager {
   async _syncMissingCreditsForEnabledTokens() {
     const tokenIds = this.pool.getEnabledIds().filter(tokenId => {
       const token = this.pool.get(tokenId);
-      return token && (token.credits === null || token.credits === undefined);
+      return token && token.sub !== 'free-tier' && (token.credits === null || token.credits === undefined);
     });
 
     if (tokenIds.length === 0) {
