@@ -24,11 +24,14 @@ data/
 test/*.png
 test/*.jpeg
 public/images
+*-export-*.json
+tokens-export-*.json
 
 # 编译输出
 dist/
 
 # 参考文件
+reference/
 gcli2api/
 plans/geminicli-implementation-plan.md
 

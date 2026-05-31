@@ -1005,7 +1005,8 @@ function renderTokens(tokens) {
                 <div class="quota-inline-detail hidden" id="quota-detail-${escapeHtml(cardId)}"></div>
             </div>
             <div class="token-actions">
-                <button class="btn btn-info btn-xs" onclick="showQuotaModal('${safeTokenId}')" title="查看额度">📊 详情</button>
+                <button class="btn btn-info btn-xs" onclick="showQuotaModal('${safeTokenId}')" title="查看额度">📊 额度</button>
+                <button class="btn btn-primary btn-xs" onclick="showUsageModal('${safeTokenId}')" title="查看使用量">📈 用量</button>
                 <button class="btn ${token.enable ? 'btn-warning' : 'btn-success'} btn-xs" onclick="toggleToken('${safeTokenId}', ${!token.enable})" title="${token.enable ? '禁用' : '启用'}">
                     ${token.enable ? '⏸️ 禁用' : '▶️ 启用'}
                 </button>

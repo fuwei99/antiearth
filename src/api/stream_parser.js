@@ -164,7 +164,8 @@ function parseAndEmitStreamChunk(line, state, callback) {
             prompt_tokens: usage.promptTokenCount || 0,
             completion_tokens: usage.candidatesTokenCount || 0,
             total_tokens: usage.totalTokenCount || 0
-          }
+          },
+          rawUsage: usage
         });
       }
       // 清空累积的思考内容和状态

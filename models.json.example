@@ -1,0 +1,35 @@
+{
+  "claude-opus-4-6-thinking": {
+    "displayName": "Claude Opus 4.6 (Thinking)",
+    "input": 15.00,
+    "output": 75.00,
+    "cacheWrite": 18.75,
+    "cacheRead": 1.50
+  },
+  "claude-sonnet-4-6": {
+    "displayName": "Claude Sonnet 4.6 (Thinking)",
+    "input": 3.00,
+    "output": 15.00,
+    "cacheWrite": 3.75,
+    "cacheRead": 0.30
+  },
+  "gemini-3-flash-agent": {
+    "displayName": "Gemini 3.5 Flash (High)",
+    "input": 0.075,
+    "output": 0.30,
+    "cacheWrite": 0.075,
+    "cacheRead": 0.01875
+  },
+  "gemini-3.1-pro-high": {
+    "displayName": "Gemini 3.1 Pro (High)",
+    "input": 1.25,
+    "output": 5.00,
+    "cacheWrite": 1.25,
+    "cacheRead": 0.3125
+  },
+  "gemini-3.1-flash-image": {
+    "displayName": "Gemini 3.1 Flash Image",
+    "isFlatFee": true,
+    "flatFee": 0.03
+  }
+}

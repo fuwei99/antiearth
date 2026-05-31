@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import tokenManager from '../auth/token_manager.js';
+import usageTracker from '../auth/usage_tracker.js';
 import config from '../config/config.js';
 import { saveBase64Image } from '../utils/imageStorage.js';
 import logger from '../utils/logger.js';
@@ -282,9 +283,21 @@ export async function generateAssistantResponse(requestBody, token, callback) {
   try {
     // 追踪是否已经向客户端发送过流数据（用于防止 fallback 时产生脏数据）
     let hasEmittedData = false;
-    const safeCallback = (...args) => {
+    const safeCallback = (event, ...args) => {
       hasEmittedData = true;
-      return callback(...args);
+      if (event && event.type === 'usage' && event.rawUsage) {
+        tokenManager.getTokenId(token).then(tokenId => {
+          if (tokenId) {
+            usageTracker.recordUsage(
+              tokenId,
+              requestBody.model,
+              event.rawUsage,
+              !!requestBody.request?.sessionId
+            );
+          }
+        }).catch(err => logger.warn('Record usage failed:', err.message));
+      }
+      return callback(event, ...args);
     };
 
     await withUpstreamFallback(async (candidate) => {
@@ -476,7 +489,21 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
     saveBase64Image
   });
 
-  const usageData = toOpenAIUsage(data.response?.usageMetadata);
+  const usageMetadata = data.response?.usageMetadata;
+  if (usageMetadata) {
+    tokenManager.getTokenId(token).then(tokenId => {
+      if (tokenId) {
+        usageTracker.recordUsage(
+          tokenId,
+          requestBody.model,
+          usageMetadata,
+          !!requestBody.request?.sessionId
+        );
+      }
+    }).catch(err => logger.warn('Record usage failed:', err.message));
+  }
+
+  const usageData = toOpenAIUsage(usageMetadata);
 
   // 将新的签名和思考内容写入全局缓存（按 model），供后续请求兜底使用
   const sessionId = requestBody.request?.sessionId;
@@ -539,11 +566,17 @@ export async function generateImageForSD(requestBody, token) {
   } catch (error) {
     await handleApiError(error, token);
   }
+  tokenManager.getTokenId(token).then(tokenId => {
+    if (tokenId) {
+      usageTracker.recordUsage(tokenId, modelName, {});
+    }
+  }).catch(err => logger.warn('Record image usage failed:', err.message));
+
   sendRecordCodeAssistMetrics(token, trajectoryId).catch(err => logger.warn('发送RecordCodeAssistMetrics失败:', err.message));
   sendRecordTrajectoryAnalytics(token, num, trajectoryId, messageId, conversationId, modelName).catch(err => logger.warn('发送轨迹分析失败:', err.message));
   sendLog(token, num, trajectoryId, conversationId, messageId).catch(err => logger.warn('发送log失败:', err.message));
 
-  const parts = data.response?.candidates?.[0]?.content?.parts || [];
+  const parts = data?.response?.candidates?.[0]?.content?.parts || [];
   const images = parts.filter(p => p.inlineData).map(p => p.inlineData.data);
 
   return images;

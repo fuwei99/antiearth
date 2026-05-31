@@ -1,0 +1,143 @@
+{
+  "claude-opus-4-6-thinking": {
+    "displayName": "Claude Opus 4.6 (Thinking)",
+    "input": 15.00,
+    "output": 75.00,
+    "cacheWrite": 18.75,
+    "cacheRead": 1.50
+  },
+  "claude-opus-4-6": {
+    "displayName": "Claude Opus 4.6",
+    "input": 15.00,
+    "output": 75.00,
+    "cacheWrite": 18.75,
+    "cacheRead": 1.50
+  },
+  "claude-opus-4-7-thinking": {
+    "displayName": "Claude Opus 4.7 (Thinking)",
+    "input": 15.00,
+    "output": 75.00,
+    "cacheWrite": 18.75,
+    "cacheRead": 1.50
+  },
+  "claude-opus-4-7": {
+    "displayName": "Claude Opus 4.7",
+    "input": 15.00,
+    "output": 75.00,
+    "cacheWrite": 18.75,
+    "cacheRead": 1.50
+  },
+  "claude-sonnet-4-6": {
+    "displayName": "Claude Sonnet 4.6 (Thinking)",
+    "input": 3.00,
+    "output": 15.00,
+    "cacheWrite": 3.75,
+    "cacheRead": 0.30
+  },
+  "claude-sonnet-4-6-thinking": {
+    "displayName": "Claude Sonnet 4.6 (Thinking)",
+    "input": 3.00,
+    "output": 15.00,
+    "cacheWrite": 3.75,
+    "cacheRead": 0.30
+  },
+  "gemini-3-flash-agent": {
+    "displayName": "Gemini 3.5 Flash (High)",
+    "input": 0.075,
+    "output": 0.30,
+    "cacheWrite": 0.075,
+    "cacheRead": 0.01875
+  },
+  "gemini-3.5-flash-low": {
+    "displayName": "Gemini 3.5 Flash (Medium)",
+    "input": 0.05,
+    "output": 0.20,
+    "cacheWrite": 0.05,
+    "cacheRead": 0.0125
+  },
+  "gemini-3.5-flash-extra-low": {
+    "displayName": "Gemini 3.5 Flash (Low)",
+    "input": 0.0375,
+    "output": 0.15,
+    "cacheWrite": 0.0375,
+    "cacheRead": 0.009375
+  },
+  "gemini-3.1-flash-lite": {
+    "displayName": "Gemini 3.1 Flash Lite",
+    "input": 0.0375,
+    "output": 0.15,
+    "cacheWrite": 0.0375,
+    "cacheRead": 0.009375
+  },
+  "gemini-2.5-flash-lite": {
+    "displayName": "Gemini 2.5 Flash Lite",
+    "input": 0.0375,
+    "output": 0.15,
+    "cacheWrite": 0.0375,
+    "cacheRead": 0.009375
+  },
+  "gemini-3.1-pro-high": {
+    "displayName": "Gemini 3.1 Pro (High)",
+    "input": 1.25,
+    "output": 5.00,
+    "cacheWrite": 1.25,
+    "cacheRead": 0.3125
+  },
+  "gemini-3.1-pro-low": {
+    "displayName": "Gemini 3.1 Pro (Low)",
+    "input": 0.625,
+    "output": 2.50,
+    "cacheWrite": 0.625,
+    "cacheRead": 0.15625
+  },
+  "gemini-pro-agent": {
+    "displayName": "Gemini 3.1 Pro (High)",
+    "input": 1.25,
+    "output": 5.00,
+    "cacheWrite": 1.25,
+    "cacheRead": 0.3125
+  },
+  "gemini-2.5-pro": {
+    "displayName": "Gemini 2.5 Pro",
+    "input": 1.25,
+    "output": 5.00,
+    "cacheWrite": 1.25,
+    "cacheRead": 0.3125
+  },
+  "gemini-2.5-flash": {
+    "displayName": "Gemini 2.5 Flash",
+    "input": 0.075,
+    "output": 0.30,
+    "cacheWrite": 0.075,
+    "cacheRead": 0.01875
+  },
+  "gemini-2.5-flash-thinking": {
+    "displayName": "Gemini 2.5 Flash (Thinking)",
+    "input": 0.075,
+    "output": 0.30,
+    "cacheWrite": 0.075,
+    "cacheRead": 0.01875
+  },
+  "gpt-oss-120b-medium": {
+    "displayName": "GPT-OSS 120B (Medium)",
+    "input": 2.00,
+    "output": 8.00,
+    "cacheWrite": 2.00,
+    "cacheRead": 0.50
+  },
+  "gemini-3.1-flash-image": {
+    "displayName": "Gemini 3.1 Flash Image",
+    "isFlatFee": true,
+    "flatFee": 0.03
+  },
+  "gemini-3.1-flash-image-4K": {
+    "displayName": "Gemini 3.1 Flash Image 4K",
+    "isFlatFee": true,
+    "flatFee": 0.03
+  },
+  "gemini-3.1-flash-image-2K": {
+    "displayName": "Gemini 3.1 Flash Image 2K",
+    "isFlatFee": true,
+    "flatFee": 0.03
+  }
+}

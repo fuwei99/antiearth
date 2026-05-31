@@ -3,6 +3,7 @@ import { generateToken, authMiddleware, verifyToken } from '../auth/jwt.js';
 import tokenManager from '../auth/token_manager.js';
 import geminicliTokenManager from '../auth/geminicli_token_manager.js';
 import quotaManager from '../auth/quota_manager.js';
+import usageTracker from '../auth/usage_tracker.js';
 import oauthManager from '../auth/oauth_manager.js';
 import config, { getConfigJson, saveConfigJson } from '../config/config.js';
 import logger from '../utils/logger.js';
@@ -946,6 +947,48 @@ router.get('/tokens/:tokenId/quotas', cookieAuthMiddleware, async (req, res) => 
     });
   } catch (error) {
     logger.error('获取额度失败:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 获取指定Token的详细使用量数据
+router.get('/tokens/:tokenId/usage', cookieAuthMiddleware, async (req, res) => {
+  try {
+    const { tokenId } = req.params;
+    
+    // 通过 tokenId 查找完整的 token 数据
+    const tokenData = await tokenManager.findTokenById(tokenId);
+    if (!tokenData) {
+      return res.status(404).json({ success: false, message: 'Token不存在' });
+    }
+
+    const usage = usageTracker.getUsage(tokenId);
+    res.json({
+      success: true,
+      data: usage
+    });
+  } catch (error) {
+    logger.error('获取使用量失败:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 清除指定Token的使用量数据
+router.post('/tokens/:tokenId/usage/clear', cookieAuthMiddleware, async (req, res) => {
+  try {
+    const { tokenId } = req.params;
+    const tokenData = await tokenManager.findTokenById(tokenId);
+    if (!tokenData) {
+      return res.status(404).json({ success: false, message: 'Token不存在' });
+    }
+
+    usageTracker.clearUsage(tokenId);
+    res.json({
+      success: true,
+      message: '使用量记录已成功清空'
+    });
+  } catch (error) {
+    logger.error('清除使用量失败:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });

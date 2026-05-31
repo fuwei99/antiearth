@@ -152,7 +152,7 @@ export function getEnvPath() {
 
 /**
  * 获取配置文件路径集合
- * @returns {{envPath: string, configJsonPath: string, configJsonExamplePath: string, examplePath: string, upstreamJsonPath: string}} 配置文件路径
+ * @returns {{envPath: string, configJsonPath: string, configJsonExamplePath: string, examplePath: string, upstreamJsonPath: string, modelsJsonPath: string, modelsJsonExamplePath: string}} 配置文件路径
  */
 export function getConfigPaths() {
   if (isPkg) {
@@ -187,6 +187,24 @@ export function getConfigPaths() {
       }
     }
 
+    // 查找 models.json 文件
+    let modelsJsonPath = path.join(exeDir, 'models.json');
+    if (!fs.existsSync(modelsJsonPath)) {
+      const cwdModelsPath = path.join(cwdDir, 'models.json');
+      if (fs.existsSync(cwdModelsPath)) {
+        modelsJsonPath = cwdModelsPath;
+      }
+    }
+
+    // 查找 models.json.example 文件
+    let modelsJsonExamplePath = path.join(exeDir, 'models.json.example');
+    if (!fs.existsSync(modelsJsonExamplePath)) {
+      const cwdModelsExamplePath = path.join(cwdDir, 'models.json.example');
+      if (fs.existsSync(cwdModelsExamplePath)) {
+        modelsJsonExamplePath = cwdModelsExamplePath;
+      }
+    }
+
     // 查找 .env.example 文件
     let examplePath = path.join(exeDir, '.env.example');
     if (!fs.existsSync(examplePath)) {
@@ -212,7 +230,7 @@ export function getConfigPaths() {
       }
     }
 
-    return { envPath, configJsonPath, configJsonExamplePath, examplePath, upstreamJsonPath };
+    return { envPath, configJsonPath, configJsonExamplePath, examplePath, upstreamJsonPath, modelsJsonPath, modelsJsonExamplePath };
   }
 
   // 开发环境
@@ -221,7 +239,9 @@ export function getConfigPaths() {
     configJsonPath: path.join(__dirname, '../../config.json'),
     configJsonExamplePath: path.join(__dirname, '../../config.json.example'),
     examplePath: path.join(__dirname, '../../.env.example'),
-    upstreamJsonPath: path.join(__dirname, '../config/upstream.json')
+    upstreamJsonPath: path.join(__dirname, '../config/upstream.json'),
+    modelsJsonPath: path.join(__dirname, '../../models.json'),
+    modelsJsonExamplePath: path.join(__dirname, '../../models.json.example')
   };
 }
 
