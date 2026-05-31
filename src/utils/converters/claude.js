@@ -61,10 +61,10 @@ function handleClaudeAssistantMessage(message, antigravityMessages, enableThinki
       } else if (item.type === 'thinking') {
         // Claude thinking block: collect thinking content and signature
         if (item.thinking) thinkingContent += item.thinking;
-        if (!messageSignature && item.signature) messageSignature = item.signature;
+        if (!messageSignature) messageSignature = item.signature || item.thought_signature || item.thoughtSignature;
       } else if (item.type === 'tool_use') {
         const safeName = processToolName(item.name, sessionId, actualModelName);
-        const signature = enableThinking ? (item.signature || toolSignature || reasoningSignature) : null;
+        const signature = item.signature || item.thought_signature || item.thoughtSignature || toolSignature || reasoningSignature;
         toolCalls.push(createFunctionCallPart(item.id, safeName, JSON.stringify(item.input || {}), signature));
       }
     }
@@ -74,7 +74,7 @@ function handleClaudeAssistantMessage(message, antigravityMessages, enableThinki
   const parts = [];
   
   if (enableThinking) {
-    const signature = messageSignature || reasoningSignature || toolSignature;
+    const signature = messageSignature || message.thoughtSignature || message.thought_signature || reasoningSignature || toolSignature;
     // 只有在有签名时才添加 thought part，避免 API 报错
     if (signature) {
       // 优先使用消息自带的思考内容，否则使用缓存的内容（与签名绑定）

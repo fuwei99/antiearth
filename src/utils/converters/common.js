@@ -116,7 +116,10 @@ export function pushFunctionResponse(toolCallId, functionName, resultContent, an
  */
 export function createThoughtPart(text, signature = null) {
   const part = { text: text || ' ', thought: true };
-  if (signature) part.thoughtSignature = signature;
+  if (signature) {
+    part.thoughtSignature = signature;
+    part.thought_signature = signature;
+  }
   return part;
 }
 
@@ -138,6 +141,7 @@ export function createFunctionCallPart(id, name, args, signature = null) {
   };
   if (signature) {
     part.thoughtSignature = signature;
+    part.thought_signature = signature;
   }
   return part;
 }

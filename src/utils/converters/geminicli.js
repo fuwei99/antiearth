@@ -285,7 +285,7 @@ function convertMessages(messages, enableThinking = false, actualModelName = '',
             
             const safeName = processToolName(func.name, null, actualModelName);
             // 工具调用始终需要签名（无论是否启用思考模式）
-            const signature = toolSignature || reasoningSignature || SKIP_THOUGHT_SIGNATURE_VALIDATOR;
+            const signature = toolCall.thoughtSignature || toolCall.thought_signature || toolSignature || reasoningSignature || SKIP_THOUGHT_SIGNATURE_VALIDATOR;
             parts.push(createFunctionCallPart(toolCall.id, safeName, args, signature));
           }
         }
@@ -511,12 +511,13 @@ function processGeminiModelThoughts(content, reasoningSignature, reasoningConten
   const fallbackSig = reasoningSignature || toolSignature;
   const fallbackContent = (fallbackSig === reasoningSignature) ? (reasoningContent || ' ') : (toolContent || ' ');
 
-  // 非思考模型：仅为 inlineData 自动补签名
+  // 非思考模型：为 inlineData 和 functionCall 自动补签名
   if (!enableThinking) {
     if (!fallbackSig) return;
     for (const part of parts) {
-      if (part.inlineData && !part.thoughtSignature) {
+      if ((part.inlineData || part.functionCall) && !part.thoughtSignature && !part.thought_signature) {
         part.thoughtSignature = fallbackSig;
+        part.thought_signature = fallbackSig;
       }
     }
     return;
@@ -524,7 +525,7 @@ function processGeminiModelThoughts(content, reasoningSignature, reasoningConten
 
   const isStandaloneSignaturePart = (part) =>
     part &&
-    part.thoughtSignature &&
+    (part.thoughtSignature || part.thought_signature) &&
     !part.thought &&
     !part.functionCall &&
     !part.functionResponse &&
@@ -538,21 +539,28 @@ function processGeminiModelThoughts(content, reasoningSignature, reasoningConten
 
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
+    if (part.thoughtSignature) part.thought_signature = part.thoughtSignature;
+    else if (part.thought_signature) part.thoughtSignature = part.thought_signature;
+
     if (part.thought === true && !part.thoughtSignature) {
       thoughtIndex = i;
     }
     if (isStandaloneSignaturePart(part)) {
       signatureIndex = i;
-      signatureValue = part.thoughtSignature;
+      signatureValue = part.thoughtSignature || part.thought_signature;
     }
   }
 
   // 合并或添加 thought 和签名
   if (thoughtIndex !== -1 && signatureIndex !== -1) {
     parts[thoughtIndex].thoughtSignature = signatureValue;
+    parts[thoughtIndex].thought_signature = signatureValue;
     parts.splice(signatureIndex, 1);
   } else if (thoughtIndex !== -1 && signatureIndex === -1) {
-    if (fallbackSig) parts[thoughtIndex].thoughtSignature = fallbackSig;
+    if (fallbackSig) {
+      parts[thoughtIndex].thoughtSignature = fallbackSig;
+      parts[thoughtIndex].thought_signature = fallbackSig;
+    }
   } else if (thoughtIndex === -1 && fallbackSig) {
     // 只有在有签名时才添加 thought part
     parts.unshift(createThoughtPart(fallbackContent, fallbackSig));
@@ -563,7 +571,8 @@ function processGeminiModelThoughts(content, reasoningSignature, reasoningConten
   for (let i = parts.length - 1; i >= 0; i--) {
     const part = parts[i];
     if (isStandaloneSignaturePart(part)) {
-      standaloneSignatures.unshift({ index: i, signature: part.thoughtSignature });
+      const sig = part.thoughtSignature || part.thought_signature;
+      standaloneSignatures.unshift({ index: i, signature: sig });
     }
   }
 
@@ -571,15 +580,24 @@ function processGeminiModelThoughts(content, reasoningSignature, reasoningConten
   let sigIndex = 0;
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
+    if (part.thoughtSignature) {
+      part.thought_signature = part.thoughtSignature;
+    } else if (part.thought_signature) {
+      part.thoughtSignature = part.thought_signature;
+    }
     if ((!part.thoughtSignature) && (part.functionCall || part.inlineData)) {
+      let sigToSet = null;
       if (sigIndex < standaloneSignatures.length) {
-        part.thoughtSignature = standaloneSignatures[sigIndex].signature;
+        sigToSet = standaloneSignatures[sigIndex].signature;
         sigIndex++;
-        continue;
+      } else {
+        // functionCall 更倾向 toolSignature；inlineData 更倾向 reasoningSignature
+        sigToSet = part.functionCall ? (toolSignature || reasoningSignature) : (reasoningSignature || toolSignature);
       }
-
-      const partFallback = part.functionCall ? (toolSignature || reasoningSignature) : (reasoningSignature || toolSignature);
-      if (partFallback) part.thoughtSignature = partFallback;
+      if (sigToSet) {
+        part.thoughtSignature = sigToSet;
+        part.thought_signature = sigToSet;
+      }
     }
   }
 
@@ -842,7 +860,7 @@ function convertClaudeMessages(messages, enableThinking = false, actualModelName
           } else if (item.type === 'tool_use') {
             const safeName = processToolName(item.name, null, actualModelName);
             // 工具调用始终需要签名（无论是否启用思考模式）
-            const signature = item.signature || toolSignature || reasoningSignature || SKIP_THOUGHT_SIGNATURE_VALIDATOR;
+            const signature = item.signature || item.thought_signature || item.thoughtSignature || toolSignature || reasoningSignature || SKIP_THOUGHT_SIGNATURE_VALIDATOR;
             toolCalls.push(createFunctionCallPart(item.id, safeName, item.input || {}, signature));
           }
         }

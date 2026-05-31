@@ -52,9 +52,7 @@ function handleAssistantMessage(message, antigravityMessages, enableThinking, ac
   const toolCalls = hasToolCalls
     ? message.tool_calls.map(toolCall => {
       const safeName = processToolName(toolCall.function.name, sessionId, actualModelName);
-      const signature = enableThinking
-        ? (toolCall.thoughtSignature || toolSignature || message.thoughtSignature || reasoningSignature)
-        : null;
+      const signature = toolCall.thoughtSignature || toolCall.thought_signature || toolSignature || message.thoughtSignature || message.thought_signature || reasoningSignature;
       return createFunctionCallPart(toolCall.id, safeName, toolCall.function.arguments, signature);
     })
     : [];
@@ -68,10 +66,10 @@ function handleAssistantMessage(message, antigravityMessages, enableThinking, ac
     if (typeof message.reasoning_content === 'string' && message.reasoning_content.length > 0) {
       // 消息自带思考内容，使用消息自带的签名或缓存签名
       reasoningText = message.reasoning_content;
-      signature = message.thoughtSignature || reasoningSignature || toolSignature;
+      signature = message.thoughtSignature || message.thought_signature || reasoningSignature || toolSignature;
     } else {
       // 没有思考内容，使用缓存的签名+内容（绑定关系）
-      signature = message.thoughtSignature || reasoningSignature || toolSignature;
+      signature = message.thoughtSignature || message.thought_signature || reasoningSignature || toolSignature;
       if (signature === reasoningSignature) {
         reasoningText = reasoningContent || ' ';
       } else if (signature === toolSignature) {
