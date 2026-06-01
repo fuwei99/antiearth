@@ -158,11 +158,12 @@ function parseAndEmitStreamChunk(line, state, callback) {
       }
       const usage = data.response?.usageMetadata;
       if (usage) {
+        const thoughtsTokens = usage.thoughtsTokenCount || 0;
         callback({
           type: 'usage',
           usage: {
             prompt_tokens: usage.promptTokenCount || 0,
-            completion_tokens: usage.candidatesTokenCount || 0,
+            completion_tokens: (usage.candidatesTokenCount || 0) + thoughtsTokens,
             total_tokens: usage.totalTokenCount || 0
           },
           rawUsage: usage

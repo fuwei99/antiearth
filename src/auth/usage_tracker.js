@@ -132,7 +132,8 @@ class UsageTracker {
     if (!tokenId || !modelId) return;
 
     const promptTokens = usageMetadata.promptTokenCount || 0;
-    const completionTokens = usageMetadata.candidatesTokenCount || 0;
+    const thoughtsTokens = usageMetadata.thoughtsTokenCount || 0;
+    const completionTokens = (usageMetadata.candidatesTokenCount || 0) + thoughtsTokens;
     const cachedReadTokens = usageMetadata.cachedContentTokenCount || 0;
     
     // Determine cache write tokens:

@@ -70,9 +70,10 @@ export function parseGeminiCandidateParts({
 
 export function toOpenAIUsage(usageMetadata) {
   if (!usageMetadata) return null;
+  const thoughtsTokens = usageMetadata.thoughtsTokenCount || 0;
   return {
     prompt_tokens: usageMetadata.promptTokenCount || 0,
-    completion_tokens: usageMetadata.candidatesTokenCount || 0,
+    completion_tokens: (usageMetadata.candidatesTokenCount || 0) + thoughtsTokens,
     total_tokens: usageMetadata.totalTokenCount || 0
   };
 }
