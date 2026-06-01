@@ -46,7 +46,11 @@
     "input": 0.075,
     "output": 0.30,
     "cacheWrite": 0.075,
-    "cacheRead": 0.01875
+    "cacheRead": 0.01875,
+    "thinkingConfig": {
+      "includeThoughts": true,
+      "thinkingBudget": 10000
+    }
   },
   "gemini-3.5-flash-low": {
     "displayName": "Gemini 3.5 Flash (Medium)",

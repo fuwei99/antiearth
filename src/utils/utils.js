@@ -3,6 +3,7 @@ import config from '../config/config.js';
 import os from 'os';
 import { REASONING_EFFORT_MAP, DEFAULT_STOP_SEQUENCES } from '../constants/index.js';
 import { toGenerationConfig } from './parameterNormalizer.js';
+import { getModelConfig } from './modelsConfig.js';
 
 // ==================== 签名常量 ====================
 const CLAUDE_THOUGHT_SIGNATURE = 'RXNZRENrZ0lDaEFDR0FJcVFMZzVPTmZsd1ZHNmZKK3labDJ0TkNlRzc5QUpzUHV2OW9UZG1yc0JUUGNsUjFBQWhKNWlYcXhlU0dTaEtxeWJ1NUdaM2YvMXByaHJCSnk3OEhsWkxOd1NEREI5Mi8zQXFlYkUvY3RISEJvTXlGVHNzdzRJZXkxUTFkUURJakE3R3AwSXJQeW0xdWxLMVBXcFhuRElPdmJFRFd4LzV2cUZaQTg2NWU1SkM3QnY2dkxwZE43M2dLYkljaThobGR3cXF3S1VMbHE5b3NMdjc3QnNhZm5mbDhlbUd5NmJ6WVRpUnRWcXA0MDJabmZ2Tnl3T2hJd1BBV0l1SUNTdjFTemswZlNmemR0Z2R5eGgxaUJOZHhHNXVhZWhKdWhlUUwza3RDZWVxa2dMNFE0ZjRKWkFnR3pKOHNvaStjZ1pqRXJHT1lyNjJkdkxnUUVoT1E5MjN6bEUwRFd4aXdPU1JOK3VSRWdHZ0FKVkhZcjBKVzhrVTZvaEVaYk1IVkE4aG14ZElGMm9YK1ZxRnFUSGFDZWZEYWNQNTJVOW94VmJ0cFhrNnJUanQ2ZHpadEFMWThXQWs5RFI3bTJTbGova2VraXFzVVBRbFdIaFNUN3diZGpuVkYvdUVoODRWbXQ5WjdtaThtR2JEcTdaTHVOalF0T3hHMVpXbXJmeUpCMExwa0R1SnZDV01qZ3BqTHdsU0R4SUpmeEFoT2JzQlVpRzdLTDYwcUluanZaK1VTcXdjZGhmN0U3ZjgrN0l2ZXczRC9DZUYvdlptQ0JqU2JTcUdYYmFIQmdC';
@@ -148,6 +149,10 @@ export function modelMapping(modelName) {
 }
 
 export function isEnableThinking(modelName) {
+  const modelConfig = getModelConfig(modelName);
+  if (modelConfig && modelConfig.thinkingConfig) {
+    return modelConfig.thinkingConfig.includeThoughts === true;
+  }
   return modelName.includes('-thinking') ||
     modelName === 'gemini-2.5-pro' ||
     modelName.startsWith('gemini-3.1') ||
@@ -170,7 +175,8 @@ export function generateGenerationConfig(parameters, enableThinking, actualModel
 
   // 处理 reasoning_effort 到 thinking_budget 的转换
   if (normalizedParams.thinking_budget === undefined && parameters.reasoning_effort !== undefined) {
-    const defaultThinkingBudget = config.defaults.thinking_budget ?? 1024;
+    const modelConfig = getModelConfig(actualModelName);
+    const defaultThinkingBudget = modelConfig?.thinkingConfig?.thinkingBudget ?? config.defaults.thinking_budget ?? 1024;
     normalizedParams.thinking_budget = REASONING_EFFORT_MAP[parameters.reasoning_effort] ?? defaultThinkingBudget;
   }
 

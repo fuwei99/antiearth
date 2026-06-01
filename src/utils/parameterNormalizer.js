@@ -3,6 +3,7 @@
 
 import config from '../config/config.js';
 import { REASONING_EFFORT_MAP } from '../constants/index.js';
+import { getModelConfig } from './modelsConfig.js';
 
 /**
  * 内部统一参数格式
@@ -145,7 +146,8 @@ export function normalizeParameters(params, format) {
  * @returns {Object} Gemini generationConfig 格式
  */
 export function toGenerationConfig(normalized, enableThinking, actualModelName) {
-  const defaultThinkingBudget = config.defaults.thinking_budget ?? 1024;
+  const modelConfig = getModelConfig(actualModelName);
+  const defaultThinkingBudget = modelConfig?.thinkingConfig?.thinkingBudget ?? config.defaults.thinking_budget ?? 1024;
   let thinkingBudget = 0;
   let actualEnableThinking = enableThinking;
   let maxOutputTokens = normalized.max_tokens || normalized.max_completion_tokens;
