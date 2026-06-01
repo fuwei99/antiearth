@@ -2,6 +2,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import axios from 'axios';
+import { StringDecoder } from 'string_decoder';
 import fingerprintRequester from '../requester.js';
 import config from '../config/config.js';
 import logger from './logger.js';
@@ -233,6 +234,7 @@ class RequesterManager {
    */
   _axiosFetchStream(url, { method, headers, body }) {
     const streamResponse = new AxiosStreamResponse();
+    const decoder = new StringDecoder('utf8');
 
     const axiosConfig = buildAxiosRequestConfig({
       method,
@@ -252,7 +254,7 @@ class RequesterManager {
         }
 
         response.data.on('data', (chunk) => {
-          const text = chunk.toString('utf8');
+          const text = typeof chunk === 'string' ? chunk : decoder.write(chunk);
           if (streamResponse._onData) {
             streamResponse._onData(text);
           }

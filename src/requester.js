@@ -4,6 +4,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { platform, arch } from 'os';
 import zlib from 'zlib';
+import { StringDecoder } from 'string_decoder';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -166,12 +167,13 @@ class FingerprintRequester {
 
     return new Promise((resolve, reject) => {
       const proc = spawn(this.binaryPath);
+      const decoder = new StringDecoder('utf8');
       this.activeProcesses.add(proc);
       let headersParsed = false;
       let responseHeaders = {};
       let responseStatus = 200;
       let responseStatusText = 'OK';
-      let headerBuffer = null; // 使用 Buffer 而非字符串，保留二进制数据完整性
+      let headerBuffer = null; // 使用 Buffer 而非字符串，保留二进制 data 完整性
       let bodyChunks = [];
       let totalLoaded = 0;
       let stderrData = '';
@@ -238,7 +240,7 @@ class FingerprintRequester {
                 onDownloadProgress({
                   loaded: totalLoaded,
                   total: parseInt(responseHeaders['content-length']) || 0,
-                  chunk: bodyPart.toString('utf8'),
+                  chunk: typeof bodyPart === 'string' ? bodyPart : decoder.write(bodyPart),
                   status: responseStatus,
                   headers: responseHeaders,
                 });
@@ -253,7 +255,7 @@ class FingerprintRequester {
             onDownloadProgress({
               loaded: totalLoaded,
               total: parseInt(responseHeaders['content-length']) || 0,
-              chunk: chunk.toString('utf8'),
+              chunk: typeof chunk === 'string' ? chunk : decoder.write(chunk),
               status: responseStatus,
               headers: responseHeaders,
             });
