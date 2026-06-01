@@ -83,6 +83,7 @@ class TokenLifecycleManager {
       await this.refreshToken(token, tokenId, true);
       return 'success';
     } catch (error) {
+      log.error(`[Lifecycle] 刷新 token ${tokenId} 发生错误: ${error.message}`);
       if (error.statusCode === 403 || error.statusCode === 400) {
         return 'disable';
       }
