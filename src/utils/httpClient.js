@@ -38,11 +38,18 @@ function buildProxyConfig() {
   if (!config.proxy) return false;
   try {
     const proxyUrl = new URL(config.proxy);
-    return {
+    const proxyConfig = {
       protocol: proxyUrl.protocol.replace(':', ''),
       host: proxyUrl.hostname,
       port: parseInt(proxyUrl.port, 10)
     };
+    if (proxyUrl.username && proxyUrl.password) {
+      proxyConfig.auth = {
+        username: decodeURIComponent(proxyUrl.username),
+        password: decodeURIComponent(proxyUrl.password)
+      };
+    }
+    return proxyConfig;
   } catch {
     return false;
   }
