@@ -57,7 +57,11 @@
     "input": 0.05,
     "output": 0.20,
     "cacheWrite": 0.05,
-    "cacheRead": 0.0125
+    "cacheRead": 0.0125,
+    "thinkingConfig": {
+      "includeThoughts": true,
+      "thinkingBudget": 4000
+    }
   },
   "gemini-3.5-flash-extra-low": {
     "displayName": "Gemini 3.5 Flash (Low)",
@@ -99,7 +103,11 @@
     "input": 1.25,
     "output": 5.00,
     "cacheWrite": 1.25,
-    "cacheRead": 0.3125
+    "cacheRead": 0.3125,
+    "thinkingConfig": {
+      "includeThoughts": true,
+      "thinkingBudget": 16000
+    }
   },
   "gemini-2.5-pro": {
     "displayName": "Gemini 2.5 Pro",
