@@ -298,8 +298,22 @@ export async function with429Retry(fn, maxRetries, options = {}, legacyOnAttempt
       const previousTokenId = getCurrentTokenId(retryOptions);
 
       if (status === 429 && !hint.hasRetryHint) {
-        logger.warn(`${loggerPrefix}收到 429，但错误响应体未提供等待间隔/恢复时间，按不可重试处理`);
-        throw error;
+        if (!canPollTokenForRetry) {
+          logger.warn(`${loggerPrefix}收到 429，但错误响应体未提供等待间隔/恢复时间，按不可重试处理`);
+          throw error;
+        }
+        logger.info(`${loggerPrefix}收到 429，虽然错误响应体未提供等待时间，但已启用Token轮询，将尝试轮换Token重试`);
+      }
+
+      if (status === 429) {
+        const tokenId = getCurrentTokenId(retryOptions);
+        if (tokenId && modelId) {
+          const cooldownDuration = (hint.explicitDelayMs && hint.explicitDelayMs > 0)
+            ? hint.explicitDelayMs
+            : 5 * 60 * 1000; // 默认 5 分钟冷却
+          const cooldownUntil = Date.now() + cooldownDuration;
+          tokenCooldownManager.setCooldown(tokenId, modelId, cooldownUntil);
+        }
       }
 
       const longQuotaCooldown = isLongQuotaCooldown(status, error, hint, longCooldownThreshold);

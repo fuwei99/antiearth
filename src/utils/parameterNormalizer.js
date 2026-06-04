@@ -155,8 +155,19 @@ export function toGenerationConfig(normalized, enableThinking, actualModelName) 
     if (normalized.thinking_budget !== undefined) {
       thinkingBudget = normalized.thinking_budget || normalized.thinkingBudget;
       // 如果用户显式设置 thinking_budget = 0，则禁用思考
+      // 但对于仅支持思考模式的模型，强制启用思考以避免 API 报错 (400: Budget 0 is invalid)
       if (thinkingBudget === 0) {
-        actualEnableThinking = false;
+        const isThinkingOnly = actualModelName && (
+          actualModelName.toLowerCase().includes('agent') ||
+          actualModelName.toLowerCase().includes('thinking') ||
+          actualModelName.toLowerCase().includes('gemini-3.5-flash-low')
+        );
+        if (isThinkingOnly) {
+          thinkingBudget = defaultThinkingBudget;
+          actualEnableThinking = true;
+        } else {
+          actualEnableThinking = false;
+        }
       }
     } else {
       thinkingBudget = defaultThinkingBudget;
