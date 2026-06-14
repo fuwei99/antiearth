@@ -160,7 +160,7 @@ async function loadConfig() {
                 if (form.elements['CACHE_IMAGE_SIGNATURES']) form.elements['CACHE_IMAGE_SIGNATURES'].checked = json.other.cacheImageSignatures !== false;
                 if (form.elements['CACHE_THINKING']) form.elements['CACHE_THINKING'].checked = json.other.cacheThinking !== false;
                 if (form.elements['FAKE_NON_STREAM']) form.elements['FAKE_NON_STREAM'].checked = json.other.fakeNonStream !== false;
-                if (form.elements['ALWAYS_USE_CREDITS']) form.elements['ALWAYS_USE_CREDITS'].checked = json.other.alwaysUseCredits || false;
+
             }
 
             // 加载官方系统提示词
@@ -307,7 +307,7 @@ async function saveConfig(e) {
     jsonConfig.other.cacheImageSignatures = form.elements['CACHE_IMAGE_SIGNATURES']?.checked ?? true;
     jsonConfig.other.cacheThinking = form.elements['CACHE_THINKING']?.checked ?? true;
     jsonConfig.other.fakeNonStream = form.elements['FAKE_NON_STREAM']?.checked ?? true;
-    jsonConfig.other.alwaysUseCredits = form.elements['ALWAYS_USE_CREDITS']?.checked || false;
+
     jsonConfig.other.retryPollTokenWithQuota = form.elements['RETRY_POLL_TOKEN_WITH_QUOTA']?.checked || false;
 
     Object.entries(allConfig).forEach(([key, value]) => {
@@ -336,7 +336,7 @@ async function saveConfig(e) {
                 const num = parseInt(value);
                 jsonConfig.other.retryIntervalMs = Number.isNaN(num) ? undefined : num;
             }
-            else if (key === 'SKIP_PROJECT_ID_FETCH' || key === 'USE_NATIVE_AXIOS' || key === 'USE_CONTEXT_SYSTEM_PROMPT' || key === 'MERGE_SYSTEM_PROMPT' || key === 'OFFICIAL_PROMPT_POSITION' || key === 'PASS_SIGNATURE_TO_CLIENT' || key === 'USE_FALLBACK_SIGNATURE' || key === 'CACHE_ALL_SIGNATURES' || key === 'CACHE_TOOL_SIGNATURES' || key === 'CACHE_IMAGE_SIGNATURES' || key === 'CACHE_THINKING' || key === 'FAKE_NON_STREAM' || key === 'ALWAYS_USE_CREDITS' || key === 'RETRY_POLL_TOKEN_WITH_QUOTA') {
+            else if (key === 'SKIP_PROJECT_ID_FETCH' || key === 'USE_NATIVE_AXIOS' || key === 'USE_CONTEXT_SYSTEM_PROMPT' || key === 'MERGE_SYSTEM_PROMPT' || key === 'OFFICIAL_PROMPT_POSITION' || key === 'PASS_SIGNATURE_TO_CLIENT' || key === 'USE_FALLBACK_SIGNATURE' || key === 'CACHE_ALL_SIGNATURES' || key === 'CACHE_TOOL_SIGNATURES' || key === 'CACHE_IMAGE_SIGNATURES' || key === 'CACHE_THINKING' || key === 'FAKE_NON_STREAM' || key === 'RETRY_POLL_TOKEN_WITH_QUOTA') {
                 // 跳过，已在上面处理
             }
             else if (key === 'ROTATION_STRATEGY') jsonConfig.rotation.strategy = value || undefined;

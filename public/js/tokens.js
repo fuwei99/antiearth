@@ -1007,6 +1007,9 @@ function renderTokens(tokens) {
             <div class="token-actions">
                 <button class="btn btn-info btn-xs" onclick="showQuotaModal('${safeTokenId}')" title="查看额度">📊 额度</button>
                 <button class="btn btn-primary btn-xs" onclick="showUsageModal('${safeTokenId}')" title="查看使用量">📈 用量</button>
+                <button class="btn ${token.useCredits ? 'btn-success' : 'btn-secondary'} btn-xs" onclick="toggleCredits('${safeTokenId}', ${!token.useCredits})" title="${token.useCredits ? '点击关闭积分' : '点击开启积分'}">
+                    ${token.useCredits ? '🪙 积分开启' : '🪙 积分关闭'}
+                </button>
                 <button class="btn ${token.enable ? 'btn-warning' : 'btn-success'} btn-xs" onclick="toggleToken('${safeTokenId}', ${!token.enable})" title="${token.enable ? '禁用' : '启用'}">
                     ${token.enable ? '⏸️ 禁用' : '▶️ 启用'}
                 </button>
@@ -1373,5 +1376,32 @@ async function fetchProjectIdForManual() {
     } finally {
         btn.disabled = false;
         btn.textContent = originalText;
+    }
+}
+
+async function toggleCredits(tokenId, useCredits) {
+    const action = useCredits ? '开启积分' : '关闭积分';
+    showLoading(`正在${action}...`);
+    try {
+        const response = await authFetch(`/admin/tokens/${encodeURIComponent(tokenId)}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ useCredits })
+        });
+
+        const data = await response.json();
+        hideLoading();
+        if (data.success) {
+            showToast(data.message || `已${action}`, 'success');
+            skipAnimation = true; // 跳过动画
+            loadTokens();
+        } else {
+            showToast(data.message || '操作失败', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('操作失败: ' + error.message, 'error');
     }
 }

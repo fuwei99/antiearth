@@ -223,8 +223,8 @@ export function buildRequestBody({ contents, tools, generationConfig, sessionId,
     requestBody.request.systemInstruction = systemInstructionObj;
   }
 
-  // 积分使用逻辑：如果配置了 alwaysUseCredits 或者显式传入 useCredits 参数，则注入积分字段
-  if (config.alwaysUseCredits || useCredits === true) {
+  // 积分使用逻辑：如果 token 的 useCredits 属性为 true，或者显式传入 useCredits === true，则注入积分字段
+  if (token.useCredits === true || useCredits === true) {
     requestBody.enabledCreditTypes = ["GOOGLE_ONE_AI"];
   }
 

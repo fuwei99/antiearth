@@ -50,14 +50,16 @@ class TokenManager {
    * @private
    */
   static _normalizeToken(token) {
+    const sub = token.sub || 'g1-pro-tier';
     return {
       ...token,
       sessionId: generateSessionId(),
       instanceId: token.instanceId || generateInstanceId(),
       deviceId: token.deviceId || randomUUID(),
-      sub: token.sub || 'g1-pro-tier',
+      sub,
       hasQuota: token.hasQuota ?? true,
       enable: token.enable ?? true,
+      useCredits: token.useCredits ?? (sub === 'free-tier')
     };
   }
 
@@ -471,6 +473,7 @@ class TokenManager {
       credits: finalCredits,
       enable: true,
       hasQuota: true,
+      useCredits: tokenData.useCredits ?? (sub === 'free-tier'),
       sessionId: generateSessionId(),
       instanceId: generateInstanceId(),
       deviceId: randomUUID()
@@ -657,7 +660,8 @@ class TokenManager {
           email: token.email || null,
           hasQuota: token.hasQuota !== false,
           sub: token.sub || null,
-          credits: token.credits !== null && token.credits !== undefined ? token.credits : null
+          credits: token.credits !== null && token.credits !== undefined ? token.credits : null,
+          useCredits: token.useCredits === true
         };
       });
     } catch (error) {

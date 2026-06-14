@@ -458,8 +458,7 @@ export function buildConfig(jsonConfig, upstreamCfg = {}) {
     fakeNonStream: jsonConfig.other?.fakeNonStream !== false,
     // 调试：完整打印最终请求体与原始响应（可能包含敏感内容/大体积数据，只从环境变量读取）
     debugDumpRequestResponse: process.env.DEBUG_DUMP_REQUEST_RESPONSE === '1',
-    // 总是使用积分：每次请求都使用 Google One AI 积分（默认关闭）
-    alwaysUseCredits: jsonConfig.other?.alwaysUseCredits === true,
+
 
     // ==================== Gemini CLI 配置 ====================
     geminicli: {

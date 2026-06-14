@@ -329,7 +329,8 @@ export async function with429Retry(fn, maxRetries, options = {}, legacyOnAttempt
       }
 
       const nextAttempt = attempt + 1;
-      if (!config.alwaysUseCredits && !shouldUseCredits) {
+      const currentToken = getCurrentToken(retryOptions);
+      if (currentToken && currentToken.useCredits !== false && !shouldUseCredits) {
         shouldUseCredits = true;
       }
 
