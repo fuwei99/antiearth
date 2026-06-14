@@ -481,6 +481,9 @@ button.loading::after {
 .token-actions .btn {
     flex: 1;
     justify-content: center;
+    font-size: 0.65rem;
+    padding: 0.25rem 0.25rem;
+    white-space: nowrap;
 }
 
 .status {
