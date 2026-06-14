@@ -5,6 +5,7 @@ import log from '../utils/logger.js';
 import { deepMerge } from '../utils/deepMerge.js';
 import { getConfigPaths } from '../utils/paths.js';
 import { parseEnvFile } from '../utils/envParser.js';
+import { getStore } from '../store/index.js';
 import {
   DEFAULT_SERVER_PORT,
   DEFAULT_SERVER_HOST,
@@ -600,4 +601,11 @@ export function saveConfigJson(data) {
   const existing = getConfigJson();
   const merged = deepMerge(existing, data);
   fs.writeFileSync(configJsonPath, JSON.stringify(merged, null, 2), 'utf8');
+
+  const store = getStore();
+  if (store.isCloudEnabled) {
+    store.set('config', merged).catch(e => {
+      log.warn(`[Config] cloud write failed: ${e.message}`);
+    });
+  }
 }

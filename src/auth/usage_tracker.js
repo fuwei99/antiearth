@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { log } from '../utils/logger.js';
 import { getDataDir, getConfigPaths } from '../utils/paths.js';
+import { getStore } from '../store/index.js';
 
 // Model pricing in USD per 1,000,000 tokens
 export const MODEL_PRICES = {
@@ -89,8 +90,22 @@ class UsageTracker {
   constructor(filePath = path.join(getDataDir(), 'usage.json')) {
     this.filePath = filePath;
     this.usageData = {};
+    this._saveTimer = null;
     this.ensureFileExists();
     this.loadFromFile();
+  }
+
+  async initFromStore() {
+    try {
+      const store = getStore();
+      const storeData = await store.get('usage');
+      if (storeData && typeof storeData === 'object' && Object.keys(storeData).length > 0) {
+        this.usageData = storeData;
+        log.info(`[UsageTracker] 从 store 加载了 ${Object.keys(storeData).length} 个账号的使用量`);
+      }
+    } catch (e) {
+      log.warn(`[UsageTracker] initFromStore failed: ${e.message}`);
+    }
   }
 
   ensureFileExists() {
@@ -119,6 +134,20 @@ class UsageTracker {
     } catch (error) {
       log.error('保存使用量记录文件失败:', error.message);
     }
+  }
+
+  _debouncedSave() {
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => {
+      this.saveToFile();
+      const store = getStore();
+      if (store.isCloudEnabled) {
+        store.set('usage', this.usageData).catch(e => {
+          log.warn(`[UsageTracker] cloud write failed: ${e.message}`);
+        });
+      }
+    }, 1000);
+    if (this._saveTimer.unref) this._saveTimer.unref();
   }
 
   /**
@@ -199,7 +228,7 @@ class UsageTracker {
       tokenUsage.history.shift();
     }
 
-    this.saveToFile();
+    this._debouncedSave();
   }
 
   /**
@@ -228,7 +257,7 @@ class UsageTracker {
   clearUsage(tokenId) {
     if (this.usageData[tokenId]) {
       delete this.usageData[tokenId];
-      this.saveToFile();
+      this._debouncedSave();
     }
   }
 }

@@ -9,6 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import config from '../config/config.js';
 import log from './logger.js';
+import { getStore } from '../store/index.js';
 
 // 缓存目录路径
 const CACHE_DIR = path.join(process.cwd(), 'data', 'signature-cache');
@@ -21,6 +22,41 @@ const SIGNATURE_CACHE_TTL = 3 * 60 * 60 * 1000; // 3小时（毫秒）
 
 // 自动清理间隔：10 分钟（照抄 CPA 的 CacheCleanupInterval）
 const CACHE_CLEANUP_INTERVAL = 10 * 60 * 1000; // 10分钟
+
+const _storeCache = new Map();
+let _storeInited = false;
+
+export async function initFromStore() {
+  if (_storeInited) return;
+  _storeInited = true;
+  try {
+    const store = getStore();
+    const keys = await store.keys('signature_cache:');
+    for (const key of keys) {
+      const data = await store.get(key);
+      if (data && Array.isArray(data)) {
+        const modelKey = key.slice('signature_cache:'.length);
+        _storeCache.set(modelKey, data);
+      }
+    }
+    if (keys.length > 0) {
+      log.info(`[SignatureCache] 从 store 加载了 ${keys.length} 个模型缓存`);
+    }
+  } catch (e) {
+    log.warn(`[SignatureCache] initFromStore failed: ${e.message}`);
+  }
+}
+
+function _debouncedStoreSet(modelKey, signatures) {
+  if (!_storeInited) return;
+  const store = getStore();
+  if (!store.isCloudEnabled) return;
+  _storeCache.set(modelKey, signatures);
+  const key = `signature_cache:${modelKey}`;
+  store.set(key, signatures).catch(e => {
+    log.warn(`[SignatureCache] cloud write failed: ${e.message}`);
+  });
+}
 
 /**
  * 确保缓存目录存在
@@ -63,12 +99,18 @@ function getCacheFilePath(modelKey) {
 function readModelCache(modelKey) {
   if (!modelKey) return [];
   
+  if (_storeCache.has(modelKey)) {
+    return _storeCache.get(modelKey);
+  }
+  
   try {
     const filePath = getCacheFilePath(modelKey);
     if (!fs.existsSync(filePath)) return [];
     
     const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    return Array.isArray(data.signatures) ? data.signatures : [];
+    const signatures = Array.isArray(data.signatures) ? data.signatures : [];
+    _storeCache.set(modelKey, signatures);
+    return signatures;
   } catch (e) {
     log.warn(`读取签名缓存失败 (${modelKey}):`, e?.message || e);
     return [];
@@ -92,6 +134,7 @@ function writeModelCache(modelKey, signatures) {
       lastModified: Date.now()
     };
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    _debouncedStoreSet(modelKey, signatures);
   } catch (e) {
     log.warn(`写入签名缓存失败 (${modelKey}):`, e?.message || e);
   }
@@ -316,6 +359,7 @@ export function clearThoughtSignatureCaches() {
         }
       }
     }
+    _storeCache.clear();
     log.info('签名缓存已清除');
   } catch (e) {
     log.warn('清除签名缓存失败:', e?.message || e);

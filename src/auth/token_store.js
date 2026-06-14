@@ -5,6 +5,7 @@ import { getDataDir } from '../utils/paths.js';
 import { FILE_CACHE_TTL } from '../constants/index.js';
 import { log } from '../utils/logger.js';
 import { generateSalt } from '../utils/idGenerator.js';
+import { getStore } from '../store/index.js';
 
 /**
  * 账号数据文件结构：
@@ -21,14 +22,15 @@ import { generateSalt } from '../utils/idGenerator.js';
 class TokenStore {
   constructor(filePath = path.join(getDataDir(), 'accounts.json')) {
     this.filePath = filePath;
+    this._storeKey = filePath.includes('geminicli') ? 'geminicli_accounts' : 'accounts';
     this._cache = null;
     this._cacheTime = 0;
     this._cacheTTL = FILE_CACHE_TTL;
     this._salt = null;
     this._lastReadOk = true;
-    // 写入锁：防止并发写入导致数据损坏
     this._writeQueue = Promise.resolve();
     this._pendingWrite = null;
+    this._storeSynced = false;
   }
 
   async _ensureFileExists() {
@@ -36,19 +38,34 @@ class TokenStore {
     try {
       await fs.mkdir(dir, { recursive: true });
     } catch (e) {
-      // 目录已存在等情况忽略
     }
 
     try {
       await fs.access(this.filePath);
     } catch (e) {
-      // 文件不存在时创建带盐值的空结构
       const initialData = {
         salt: generateSalt(),
         tokens: []
       };
       await fs.writeFile(this.filePath, JSON.stringify(initialData, null, 2), 'utf8');
       log.info('✓ 已创建账号配置文件（含安全盐值）');
+    }
+  }
+
+  async initFromStore() {
+    try {
+      const store = getStore();
+      const storeData = await store.get(this._storeKey);
+      if (storeData) {
+        const tokens = Array.isArray(storeData) ? storeData : (storeData.tokens || []);
+        this._cache = this._filterValidTokens(tokens);
+        this._cacheTime = Date.now();
+        if (storeData._salt) this._salt = storeData._salt;
+        this._storeSynced = true;
+        log.info(`[TokenStore] 从 store 加载了 ${this._cache.length} 个 token (${this._storeKey})`);
+      }
+    } catch (e) {
+      log.warn(`[TokenStore] initFromStore failed: ${e.message}`);
     }
   }
 
@@ -212,11 +229,9 @@ class TokenStore {
   async writeAll(tokens) {
     const normalized = Array.isArray(tokens) ? tokens : [];
     
-    // 使用队列确保写入顺序，避免并发写入导致数据损坏
     const writeOperation = async () => {
       await this._ensureFileExists();
       
-      // 确保盐值已加载
       const salt = await this.getSalt();
       
       try {
@@ -228,17 +243,22 @@ class TokenStore {
         this._cache = normalized;
         this._cacheTime = Date.now();
         this._lastReadOk = true;
+
+        const store = getStore();
+        if (store.isCloudEnabled) {
+          store.set(this._storeKey, { tokens: normalized, _salt: salt }).catch(e => {
+            log.warn(`[TokenStore] cloud write failed: ${e.message}`);
+          });
+        }
       } catch (error) {
         log.error('保存账号配置文件失败:', error.message);
         throw error;
       }
     };
     
-    // 将写入操作加入队列
     this._writeQueue = this._writeQueue
       .then(writeOperation)
       .catch(error => {
-        // 捕获错误但不中断队列
         log.error('写入队列操作失败:', error.message);
       });
     
@@ -288,7 +308,6 @@ class TokenStore {
       return allTokens;
     };
 
-    // 在队列中执行合并后写入
     this._writeQueue = this._writeQueue
       .then(async () => {
         const mergedTokens = await mergeOperation();
@@ -305,9 +324,15 @@ class TokenStore {
           this._cache = mergedTokens;
           this._cacheTime = Date.now();
           this._lastReadOk = true;
+
+          const store = getStore();
+          if (store.isCloudEnabled) {
+            store.set(this._storeKey, { tokens: mergedTokens, _salt: salt }).catch(e => {
+              log.warn(`[TokenStore] cloud write failed: ${e.message}`);
+            });
+          }
         } catch (error) {
           log.error('保存账号配置文件失败:', error.message);
-          // 不抛出错误，避免中断队列
         }
       })
       .catch(error => {

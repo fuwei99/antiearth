@@ -3,6 +3,7 @@ import path from 'path';
 import { log } from '../utils/logger.js';
 import { getDataDir } from '../utils/paths.js';
 import { getGroupKey, MODEL_GROUPS } from '../utils/modelGroups.js';
+import { getStore } from '../store/index.js';
 
 /**
  * Token 模型系列冷却管理器
@@ -26,8 +27,27 @@ class TokenCooldownManager {
     this.filePath = filePath;
     /** @type {Map<string, Object>} tokenId -> { groupKey: { until: timestamp } } */
     this.cooldowns = new Map();
+    this._saveTimer = null;
     this.ensureFileExists();
     this.loadFromFile();
+  }
+
+  async initFromStore() {
+    try {
+      const store = getStore();
+      const storeData = await store.get('cooldowns');
+      if (storeData && typeof storeData === 'object') {
+        Object.entries(storeData).forEach(([tokenId, groups]) => {
+          if (groups && typeof groups === 'object') {
+            this.cooldowns.set(tokenId, groups);
+          }
+        });
+        this._cleanupExpired();
+        log.info(`[CooldownManager] 从 store 加载了 ${this.cooldowns.size} 个冷却记录`);
+      }
+    } catch (e) {
+      log.warn(`[CooldownManager] initFromStore failed: ${e.message}`);
+    }
   }
 
   ensureFileExists() {
@@ -67,7 +87,6 @@ class TokenCooldownManager {
     try {
       const cooldownsObj = {};
       this.cooldowns.forEach((groups, tokenId) => {
-        // 只保存有实际冷却的条目
         const validGroups = {};
         let hasValid = false;
         for (const [group, data] of Object.entries(groups)) {
@@ -91,6 +110,32 @@ class TokenCooldownManager {
     }
   }
 
+  _debouncedSave() {
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => {
+      this.saveToFile();
+      const store = getStore();
+      if (store.isCloudEnabled) {
+        const cooldownsObj = {};
+        this.cooldowns.forEach((groups, tokenId) => {
+          const validGroups = {};
+          for (const [group, data] of Object.entries(groups)) {
+            if (data && data.until && data.until > Date.now()) {
+              validGroups[group] = data;
+            }
+          }
+          if (Object.keys(validGroups).length > 0) {
+            cooldownsObj[tokenId] = validGroups;
+          }
+        });
+        store.set('cooldowns', cooldownsObj).catch(e => {
+          log.warn(`[CooldownManager] cloud write failed: ${e.message}`);
+        });
+      }
+    }, 1000);
+    if (this._saveTimer.unref) this._saveTimer.unref();
+  }
+
   /**
    * 清理过期的冷却状态
    * @private
@@ -110,7 +155,7 @@ class TokenCooldownManager {
 
     if (cleaned > 0) {
       log.info(`[CooldownManager] 清理了 ${cleaned} 个过期的冷却状态`);
-      this.saveToFile();
+      this._debouncedSave();
     }
   }
 
@@ -142,7 +187,7 @@ class TokenCooldownManager {
     const resetDate = new Date(untilTimestamp);
     log.warn(`[CooldownManager] Token ${tokenId} 的 ${groupKey} 系列已禁用，将在 ${resetDate.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })} 恢复`);
 
-    this.saveToFile();
+    this._debouncedSave();
   }
 
   /**
@@ -166,7 +211,7 @@ class TokenCooldownManager {
     if (cooldown.until <= now) {
       // 冷却已过期，清除状态
       groups[groupKey] = null;
-      this.saveToFile();
+      this._debouncedSave();
       log.info(`[CooldownManager] Token ${tokenId} 的 ${groupKey} 系列冷却已结束`);
       return true;
     }
@@ -214,7 +259,7 @@ class TokenCooldownManager {
     if (groups[groupKey]) {
       groups[groupKey] = null;
       log.info(`[CooldownManager] 已清除 Token ${tokenId} 的 ${groupKey} 系列冷却状态`);
-      this.saveToFile();
+      this._debouncedSave();
     }
   }
 
@@ -228,7 +273,7 @@ class TokenCooldownManager {
     if (this.cooldowns.has(tokenId)) {
       this.cooldowns.delete(tokenId);
       log.info(`[CooldownManager] 已清除 Token ${tokenId} 的所有冷却状态`);
-      this.saveToFile();
+      this._debouncedSave();
     }
   }
 

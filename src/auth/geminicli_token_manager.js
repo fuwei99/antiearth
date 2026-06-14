@@ -61,6 +61,7 @@ class GeminiCliTokenManager {
   async _initialize() {
     try {
       log.info('[GeminiCLI] 正在初始化token管理器...');
+      await this.store.initFromStore();
       const tokenArray = await this.store.readAll();
 
       // Gemini CLI 不需要 sessionId

@@ -16,6 +16,10 @@ import { getPublicDir, getRelativePath } from '../utils/paths.js';
 import { errorHandler } from '../utils/errors.js';
 import { getChunkPoolSize, clearChunkPool } from './stream.js';
 import ipBlockManager from '../utils/ipBlockManager.js';
+import { initStore, getStore } from '../store/index.js';
+import usageTracker from '../auth/usage_tracker.js';
+import quotaManager from '../auth/quota_manager.js';
+import tokenCooldownManager from '../auth/token_cooldown_manager.js';
 
 // 路由模块
 import adminRouter from '../routes/admin.js';
@@ -29,7 +33,6 @@ const publicDir = getPublicDir();
 
 const app = express();
 
-// 信任反向代理，以便正确获取 HTTPS 协议状态 (req.secure) 和客户端 IP
 app.set('trust proxy', true);
 
 // 初始化 IP 封禁管理器
@@ -182,8 +185,8 @@ app.use((req, res, next) => {
     '/v1beta/models'
   ];
 
-  const path = req.path;
-  const isWhitelisted = whitelistPaths.some(p => path === p || path.startsWith(p + '/'));
+  const reqPath = req.path;
+  const isWhitelisted = whitelistPaths.some(p => reqPath === p || reqPath.startsWith(p + '/'));
 
   if (isWhitelisted) {
     return res.status(404).json({ error: 'Not Found' });
@@ -193,75 +196,97 @@ app.use((req, res, next) => {
   res.status(404).json({ error: 'Not Found' });
 });
 
-// ==================== 服务器启动 ====================
-const server = app.listen(config.server.port, config.server.host, () => {
-  logger.info(`服务器已启动: ${config.server.host}:${config.server.port}`);
+// ==================== 异步初始化 + 服务器启动 ====================
+async function startServer() {
+  // 初始化 DataStore（云端同步）
+  await initStore();
 
-  // 启动时检查版本更新
-  checkAndUpdateVersion();
+  // 从 store 同步数据到各业务模块
+  await Promise.all([
+    usageTracker.initFromStore(),
+    quotaManager.initFromStore(),
+    tokenCooldownManager.initFromStore(),
+    import('../utils/thoughtSignatureCache.js').then(m => m.initFromStore()),
+  ]);
 
-  // 初始化 WebSocket 日志服务
-  logWsServer.initialize(server);
-  logWsServer.updateConfig({
-    logMaxSizeMB: config.log?.maxSizeMB,
-    logMaxFiles: config.log?.maxFiles,
-    logMaxMemory: config.log?.maxMemory
-  });
-  logger.info('WebSocket 日志服务已启动: /ws/logs');
-});
+  // 启动 HTTP 服务器
+  const server = app.listen(config.server.port, config.server.host, () => {
+    logger.info(`服务器已启动: ${config.server.host}:${config.server.port}`);
 
-server.on('error', (error) => {
-  if (error.code === 'EADDRINUSE') {
-    logger.error(`端口 ${config.server.port} 已被占用`);
-    process.exit(1);
-  } else if (error.code === 'EACCES') {
-    logger.error(`端口 ${config.server.port} 无权限访问`);
-    process.exit(1);
-  } else {
-    logger.error('服务器启动失败:', error.message);
-    process.exit(1);
-  }
-});
+    // 启动时检查版本更新
+    checkAndUpdateVersion();
 
-// ==================== 优雅关闭 ====================
-const shutdown = () => {
-  logger.info('正在关闭服务器...');
-
-  // 停止内存管理器
-  memoryManager.stop();
-  logger.info('已停止内存管理器');
-
-  // 关闭子进程请求器
-  requesterManager.close();
-  logger.info('已关闭子进程请求器');
-
-  // 清理对象池
-  clearChunkPool();
-  logger.info('已清理对象池');
-
-  // 关闭 WebSocket 日志服务
-  logWsServer.close();
-  logger.info('已关闭 WebSocket 日志服务');
-
-  server.close(() => {
-    logger.info('服务器已关闭');
-    process.exit(0);
+    // 初始化 WebSocket 日志服务
+    logWsServer.initialize(server);
+    logWsServer.updateConfig({
+      logMaxSizeMB: config.log?.maxSizeMB,
+      logMaxFiles: config.log?.maxFiles,
+      logMaxMemory: config.log?.maxMemory
+    });
+    logger.info('WebSocket 日志服务已启动: /ws/logs');
   });
 
-  // 5秒超时强制退出
-  setTimeout(() => {
-    logger.warn('服务器关闭超时，强制退出');
-    process.exit(0);
-  }, 5000);
-};
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      logger.error(`端口 ${config.server.port} 已被占用`);
+      process.exit(1);
+    } else if (error.code === 'EACCES') {
+      logger.error(`端口 ${config.server.port} 无权限访问`);
+      process.exit(1);
+    } else {
+      logger.error('服务器启动失败:', error.message);
+      process.exit(1);
+    }
+  });
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+  // ==================== 优雅关闭 ====================
+  const shutdown = async () => {
+    logger.info('正在关闭服务器...');
+
+    // 停止内存管理器
+    memoryManager.stop();
+    logger.info('已停止内存管理器');
+
+    // 关闭子进程请求器
+    requesterManager.close();
+    logger.info('已关闭子进程请求器');
+
+    // 清理对象池
+    clearChunkPool();
+    logger.info('已清理对象池');
+
+    // 关闭 WebSocket 日志服务
+    logWsServer.close();
+    logger.info('已关闭 WebSocket 日志服务');
+
+    const store = getStore();
+    await store.close();
+    logger.info('已关闭数据存储');
+
+    server.close(() => {
+      logger.info('服务器已关闭');
+      process.exit(0);
+    });
+
+    // 5秒超时强制退出
+    setTimeout(() => {
+      logger.warn('服务器关闭超时，强制退出');
+      process.exit(0);
+    }, 5000);
+  };
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}
+
+startServer().catch(err => {
+  logger.error('服务器启动失败:', err.message);
+  process.exit(1);
+});
 
 // ==================== 异常处理 ====================
 process.on('uncaughtException', (error) => {
   logger.error('未捕获异常:', error.message);
-  // 不立即退出，让当前请求完成
 });
 
 process.on('unhandledRejection', (reason, promise) => {

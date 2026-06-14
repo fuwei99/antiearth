@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { getDataDir } from './paths.js';
 import logger from './logger.js';
+import { getStore } from '../store/index.js';
 
 const BLOCKLIST_FILE = 'ip-blocklist.json';
 const SECURITY_CONFIG_FILE = 'security.json';
@@ -96,6 +97,13 @@ class IpBlockManager {
     } catch (e) {
       logger.error('保存安全配置失败:', e.message);
     }
+
+    const store = getStore();
+    if (store.isCloudEnabled) {
+      store.set('security', this.config).catch(e => {
+        logger.warn(`[IpBlockManager] cloud config write failed: ${e.message}`);
+      });
+    }
   }
 
   isWhitelisted(ip) {
@@ -129,6 +137,13 @@ class IpBlockManager {
         await fs.writeFile(this.filePath, JSON.stringify(this.data, null, 2), 'utf8');
       } catch (e) {
         logger.error('保存封禁列表失败:', e.message);
+      }
+
+      const store = getStore();
+      if (store.isCloudEnabled) {
+        store.set('ip_blocklist', this.data).catch(e => {
+          logger.warn(`[IpBlockManager] cloud write failed: ${e.message}`);
+        });
       }
     });
     return this.savePromise;

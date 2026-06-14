@@ -4,6 +4,7 @@ import { log } from '../utils/logger.js';
 import { getDataDir } from '../utils/paths.js';
 import { QUOTA_CACHE_TTL, QUOTA_CLEANUP_INTERVAL } from '../constants/index.js';
 import { getGroupKey } from '../utils/modelGroups.js';
+import { getStore } from '../store/index.js';
 
 // 每次请求消耗的额度百分比（按模型系列区分）
 const REQUEST_COST_PERCENT = 0.6667;
@@ -27,9 +28,27 @@ class QuotaManager {
     this.CACHE_TTL = QUOTA_CACHE_TTL;
     this.CLEANUP_INTERVAL = QUOTA_CLEANUP_INTERVAL;
     this.cleanupTimer = null;
+    this._saveTimer = null;
     this.ensureFileExists();
     this.loadFromFile();
     this.startCleanupTimer();
+  }
+
+  async initFromStore() {
+    try {
+      const store = getStore();
+      const storeData = await store.get('quotas');
+      if (storeData && typeof storeData === 'object') {
+        Object.entries(storeData).forEach(([key, value]) => {
+          if (!value.requestCounts) value.requestCounts = {};
+          if (!value.resetTimes) value.resetTimes = {};
+          this.cache.set(key, value);
+        });
+        log.info(`[QuotaManager] 从 store 加载了 ${this.cache.size} 个额度记录`);
+      }
+    } catch (e) {
+      log.warn(`[QuotaManager] initFromStore failed: ${e.message}`);
+    }
   }
 
   ensureFileExists() {
@@ -71,6 +90,24 @@ class QuotaManager {
     } catch (error) {
       log.error('保存额度文件失败:', error.message);
     }
+  }
+
+  _debouncedSave() {
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => {
+      this.saveToFile();
+      const store = getStore();
+      if (store.isCloudEnabled) {
+        const quotas = {};
+        this.cache.forEach((value, key) => {
+          quotas[key] = value;
+        });
+        store.set('quotas', quotas).catch(e => {
+          log.warn(`[QuotaManager] cloud write failed: ${e.message}`);
+        });
+      }
+    }, 1000);
+    if (this._saveTimer.unref) this._saveTimer.unref();
   }
 
   /**
@@ -163,7 +200,7 @@ class QuotaManager {
       requestCounts: newRequestCounts,
       resetTimes: newResetTimes
     });
-    this.saveToFile();
+    this._debouncedSave();
   }
 
   /**
@@ -199,7 +236,7 @@ class QuotaManager {
     }
 
     data.requestCounts[groupKey] = (data.requestCounts[groupKey] || 0) + 1;
-    this.saveToFile();
+    this._debouncedSave();
   }
 
   /**
@@ -377,7 +414,7 @@ class QuotaManager {
 
     if (cleaned > 0) {
       log.info(`清理了 ${cleaned} 个过期的额度记录`);
-      this.saveToFile();
+      this._debouncedSave();
     }
   }
 

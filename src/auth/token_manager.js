@@ -71,6 +71,8 @@ class TokenManager {
     try {
       log.info('正在初始化token管理器...');
 
+      await this.store.initFromStore();
+
       // 0. 检查环境变量自动导入
       await this._importFromEnv();
 
