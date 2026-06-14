@@ -250,13 +250,17 @@ try {
   // 忽略解析错误，使用 dotenv 的结果
 }
 
-// 获取代理配置：优先使用 PROXY，其次使用系统代理环境变量
+// 获取代理配置：优先使用本地代理，其次使用 PROXY，最后使用系统代理环境变量
 export function getProxyConfig() {
-  if (process.env.AUTH_PROXY) {
-    return process.env.AUTH_PROXY;
+  // 如果本地二级代理已启动，始终使用它（绕过 dotenv 热重载覆盖问题）
+  if (process.env._LOCAL_PROXY_URL) {
+    return process.env._LOCAL_PROXY_URL;
   }
   if (process.env.PROXY) {
     return process.env.PROXY;
+  }
+  if (process.env.AUTH_PROXY) {
+    return process.env.AUTH_PROXY;
   }
 
   // 检查系统代理环境变量（按优先级）

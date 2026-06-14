@@ -210,6 +210,7 @@ async function startServer() {
     const { server: proxyServer, localUrl } = await startLocalProxy(authProxy);
     config.proxy = localUrl;
     process.env.PROXY = localUrl;
+    process.env._LOCAL_PROXY_URL = localUrl;
     delete process.env.AUTH_PROXY;
     // 防止 dotenv 热重载时把 .env 里的原始 PROXY 覆盖回来
     // 将 .env 中的 PROXY 行替换为本地代理地址
