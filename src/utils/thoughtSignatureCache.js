@@ -1,7 +1,8 @@
 // 签名缓存（文件存储版本）：
 // - 按 model 维度缓存"最近 N 个"签名（环形队列）
-// - 签名和思考内容绑定存储：{ signature, content }
+// - 签名和思考内容绑定存储：{ signature, content, timestamp }
 // - 自动先进先出：超过容量自动挤掉最旧的
+// - TTL 3 小时滑动过期：访问时刷新时间戳，超时自动清理
 // - 存储在 data/signature-cache/ 目录下
 
 import fs from 'fs';
@@ -13,7 +14,13 @@ import log from './logger.js';
 const CACHE_DIR = path.join(process.cwd(), 'data', 'signature-cache');
 
 // 上限：每个模型保留的签名数量
-const MAX_SIGNATURES_PER_MODEL = 3;
+const MAX_SIGNATURES_PER_MODEL = 30;
+
+// TTL：签名有效期 3 小时（照抄 CPA 的 SignatureCacheTTL）
+const SIGNATURE_CACHE_TTL = 3 * 60 * 60 * 1000; // 3小时（毫秒）
+
+// 自动清理间隔：10 分钟（照抄 CPA 的 CacheCleanupInterval）
+const CACHE_CLEANUP_INTERVAL = 10 * 60 * 1000; // 10分钟
 
 /**
  * 确保缓存目录存在
@@ -91,7 +98,7 @@ function writeModelCache(modelKey, signatures) {
 }
 
 /**
- * 获取最新的签名条目
+ * 获取最新的签名条目（TTL 滑动过期：访问时刷新时间戳）
  * @param {string} modelKey - 模型 key
  * @returns {{ signature: string, content: string } | null}
  */
@@ -101,11 +108,35 @@ function getLatestEntry(modelKey) {
   const signatures = readModelCache(modelKey);
   if (signatures.length === 0) return null;
   
-  return signatures[signatures.length - 1] || null;
+  const latest = signatures[signatures.length - 1];
+  if (!latest) return null;
+  
+  // TTL 检查：超过 3 小时的签名视为过期
+  const now = Date.now();
+  if (latest.timestamp && (now - latest.timestamp > SIGNATURE_CACHE_TTL)) {
+    // 过期，删除该条目并写回
+    signatures.pop();
+    if (signatures.length > 0) {
+      writeModelCache(modelKey, signatures);
+    } else {
+      // 全部过期，删除缓存文件
+      try {
+        const filePath = getCacheFilePath(modelKey);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch { /* ignore */ }
+    }
+    return null;
+  }
+  
+  // 滑动续期：访问时刷新时间戳（照抄 CPA 的 sliding expiration）
+  latest.timestamp = now;
+  writeModelCache(modelKey, signatures);
+  
+  return latest;
 }
 
 /**
- * 添加新签名条目（FIFO 环形队列）
+ * 添加新签名条目（FIFO 环形队列 + TTL 滑动过期）
  * @param {string} modelKey - 模型 key
  * @param {Object} entry - 签名条目 { signature, content }
  */
@@ -116,11 +147,14 @@ function pushEntry(modelKey, entry) {
   
   // 去重：避免同一个签名重复入队
   if (signatures.length > 0 && signatures[signatures.length - 1]?.signature === entry.signature) {
+    // 即使签名相同，也刷新时间戳（滑动过期）
+    signatures[signatures.length - 1].timestamp = Date.now();
+    writeModelCache(modelKey, signatures);
     return;
   }
   
-  // 添加新条目
-  signatures.push(entry);
+  // 添加新条目，附带时间戳
+  signatures.push({ ...entry, timestamp: Date.now() });
   
   // 超过容量时移除最旧的
   while (signatures.length > MAX_SIGNATURES_PER_MODEL) {
@@ -288,5 +322,53 @@ export function clearThoughtSignatureCaches() {
   }
 }
 
-// 初始化时确保目录存在
+/**
+ * 清理过期签名缓存（遍历所有缓存文件，删除过期条目）
+ * 照抄 CPA 的 purgeExpiredCaches，每 10 分钟执行一次
+ */
+function purgeExpiredEntries() {
+  try {
+    if (!fs.existsSync(CACHE_DIR)) return;
+    const files = fs.readdirSync(CACHE_DIR);
+    const now = Date.now();
+    
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue;
+      
+      const filePath = path.join(CACHE_DIR, file);
+      try {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (!Array.isArray(data.signatures)) continue;
+        
+        // 删除过期条目
+        const valid = data.signatures.filter(entry => {
+          // 没有 timestamp 的旧条目视为过期
+          if (!entry.timestamp) return false;
+          return (now - entry.timestamp) <= SIGNATURE_CACHE_TTL;
+        });
+        
+        if (valid.length === 0) {
+          // 全部过期，删除文件
+          fs.unlinkSync(filePath);
+        } else if (valid.length < data.signatures.length) {
+          // 有过期条目，写回有效部分
+          writeModelCache(file.replace('.json', ''), valid);
+        }
+      } catch { /* ignore corrupt files */ }
+    }
+  } catch { /* ignore */ }
+}
+
+// 启动后台清理定时器（照抄 CPA 的 startCacheCleanup）
+let cleanupTimer = null;
+function startCacheCleanup() {
+  if (cleanupTimer) return; // 防止重复启动
+  cleanupTimer = setInterval(purgeExpiredEntries, CACHE_CLEANUP_INTERVAL);
+  // 不阻止进程退出
+  if (cleanupTimer.unref) cleanupTimer.unref();
+  log.info(`签名缓存自动清理已启动（间隔 ${CACHE_CLEANUP_INTERVAL / 60000} 分钟，TTL ${SIGNATURE_CACHE_TTL / 3600000} 小时）`);
+}
+
+// 初始化时确保目录存在 + 启动清理
 ensureCacheDir();
+startCacheCleanup();

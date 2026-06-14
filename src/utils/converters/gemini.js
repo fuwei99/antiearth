@@ -1,8 +1,8 @@
 // Gemini 格式转换工具
 import config from '../../config/config.js';
-import { generateRequestId } from '../idGenerator.js';
+import { generateRequestId, generateStableSessionId } from '../idGenerator.js';
 import { convertGeminiToolsToAntigravity } from '../toolConverter.js';
-import { getSignatureContext, createThoughtPart, modelMapping, isEnableThinking, buildSystemInstruction } from './common.js';
+import { getSignatureContext, createThoughtPart, modelMapping, isEnableThinking, buildSystemInstruction, cleanContentsParts, cleanSystemInstructionParts } from './common.js';
 import { normalizeGeminiParameters, toGenerationConfig } from '../parameterNormalizer.js';
 
 /**
@@ -183,7 +183,9 @@ export function generateGeminiRequestBody(geminiBody, modelName, token) {
 
   // 转换为 generationConfig 格式
   request.generationConfig = toGenerationConfig(normalizedParams, enableThinking, actualModelName);
-  request.sessionId = token.sessionId;
+  // 基于 contents 内容生成稳定的 sessionId（照抄 CPA 的 generateStableSessionID）
+  // 同一对话的延续请求会产生相同的 sessionId，提升 Gemini 隐式缓存命中率
+  request.sessionId = generateStableSessionId(request.contents);
   delete request.safetySettings;
 
   // 添加工具配置
@@ -199,6 +201,11 @@ export function generateGeminiRequestBody(geminiBody, modelName, token) {
   } else {
     delete request.systemInstruction;
   }
+
+  // 清洗 contents 和 systemInstruction 中 Gemini gRPC 协议不支持的字段
+  // Gemini 不支持 cache_control / cacheControl / promptCacheOptions，隐式缓存由后端自动处理
+  cleanContentsParts(request.contents);
+  cleanSystemInstructionParts(request.systemInstruction);
 
   //console.log(JSON.stringify(request, null, 2))
 

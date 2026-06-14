@@ -16,6 +16,41 @@ function generateSessionId() {
   return String(-Math.floor(Math.random() * 9e18));
 }
 
+/**
+ * 基于对话内容生成稳定的 Session ID（照抄 CPA 的 generateStableSessionID）
+ * 
+ * 遍历 contents 数组，找第一个 role=user 的消息，取 parts[0].text，
+ * 对其做 SHA256 哈希，将前 8 字节转为 int64 作为 sessionId。
+ * 
+ * 这样同一对话的延续请求会产生相同的 sessionId，提升 Gemini 隐式缓存命中率。
+ * 找不到用户文本时回退到随机 sessionId。
+ * 
+ * @param {Array} contents - Gemini 格式的 contents 数组 [{role, parts}]
+ * @returns {string} 稳定的 sessionId（负数字符串格式）
+ */
+function generateStableSessionId(contents) {
+  if (Array.isArray(contents)) {
+    for (const content of contents) {
+      if (content.role === 'user' && Array.isArray(content.parts)) {
+        for (const part of content.parts) {
+          if (part.text && typeof part.text === 'string' && part.text.trim()) {
+            const hash = createHash('sha256').update(part.text).digest();
+            // 取前 8 字节，转成 BigInt，确保为正数（清最高符号位）
+            const high = hash.readUInt32BE(0);
+            const low = hash.readUInt32BE(4);
+            const value = (BigInt(high) << 32n) | BigInt(low);
+            // Gemini sessionId 格式是负数，CPA 用 "-" + strconv.FormatInt(n, 10)
+            // 这里直接用 "-" + 正整数字符串
+            return '-' + (value & 0x7FFFFFFFFFFFFFFFn).toString();
+          }
+        }
+      }
+    }
+  }
+  // 回退：找不到用户文本，用随机 sessionId
+  return generateSessionId();
+}
+
 function generateProjectId() {
   const adjectives = ['useful', 'bright', 'swift', 'calm', 'bold'];
   const nouns = ['fuze', 'wave', 'spark', 'flow', 'core'];
@@ -60,6 +95,7 @@ function generateTokenId(refreshToken, salt) {
 export {
     generateProjectId,
     generateSessionId,
+    generateStableSessionId,
     generateRequestId,
     generateToolCallId,
     generateInstanceId,

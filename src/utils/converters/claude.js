@@ -14,33 +14,48 @@ import {
   mergeSystemInstruction,
   modelMapping,
   isEnableThinking,
-  generateGenerationConfig
+  generateGenerationConfig,
+  cleanPartFields
 } from './common.js';
 
-function extractImagesFromClaudeContent(content) {
-  const result = { text: '', images: [] };
+function extractClaudeContentToParts(content, messageContext = {}) {
+  const parts = [];
+
   if (typeof content === 'string') {
-    result.text = content;
-    return result;
+    parts.push({ text: content || ' ' });
+    return parts;
   }
+
   if (Array.isArray(content)) {
     for (const item of content) {
+      let part = null;
       if (item.type === 'text') {
-        result.text += item.text || '';
+        part = { text: item.text || ' ' };
       } else if (item.type === 'image') {
         const source = item.source;
         if (source && source.type === 'base64' && source.data) {
-          result.images.push({
+          part = {
             inlineData: {
               mimeType: source.media_type || 'image/png',
               data: source.data
             }
-          });
+          };
         }
+      }
+      
+      if (part) {
+        // Gemini gRPC 协议不支持 cache_control/promptCacheOptions，隐式缓存由后端自动处理
+        // 显式剔除防御：确保即使上游传入这些字段也不会透传到下游
+        cleanPartFields(part);
+        parts.push(part);
       }
     }
   }
-  return result;
+
+  if (parts.length === 0) {
+    parts.push({ text: ' ' });
+  }
+  return parts;
 }
 
 function handleClaudeAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, sessionId, hasTools) {
@@ -65,7 +80,10 @@ function handleClaudeAssistantMessage(message, antigravityMessages, enableThinki
       } else if (item.type === 'tool_use') {
         const safeName = processToolName(item.name, sessionId, actualModelName);
         const signature = item.signature || item.thought_signature || item.thoughtSignature || toolSignature || reasoningSignature;
-        toolCalls.push(createFunctionCallPart(item.id, safeName, JSON.stringify(item.input || {}), signature));
+        const toolCallPart = createFunctionCallPart(item.id, safeName, JSON.stringify(item.input || {}), signature);
+        // Gemini gRPC 协议不支持 cache_control/promptCacheOptions，显式剔除防御
+        cleanPartFields(toolCallPart);
+        toolCalls.push(toolCallPart);
       }
     }
   }
@@ -90,10 +108,13 @@ function handleClaudeAssistantMessage(message, antigravityMessages, enableThinki
     }
   }
   if (hasContent) {
-    const part = { text: textContent.trimEnd() };
-    parts.push(part);
+    parts.push({ text: textContent.trimEnd() });
   }
   if (!enableThinking && parts[0]) delete parts[0].thoughtSignature;
+
+  // Gemini gRPC 协议不支持 cache_control/promptCacheOptions，显式剔除防御
+  for (const p of parts) cleanPartFields(p);
+  for (const tc of toolCalls) cleanPartFields(tc);
 
   pushModelMessage({ parts, toolCalls, hasContent }, antigravityMessages);
 }
@@ -115,7 +136,7 @@ function handleClaudeToolResult(message, antigravityMessages) {
       resultContent = item.content.filter(c => c.type === 'text').map(c => c.text).join('');
     }
 
-    pushFunctionResponse(toolUseId, functionName, resultContent, antigravityMessages);
+    pushFunctionResponse(toolUseId, functionName, resultContent, antigravityMessages, item);
   }
 }
 
@@ -127,7 +148,7 @@ function claudeMessageToAntigravity(claudeMessages, enableThinking, actualModelN
       if (Array.isArray(content) && content.some(item => item.type === 'tool_result')) {
         handleClaudeToolResult(message, antigravityMessages);
       } else {
-        const extracted = extractImagesFromClaudeContent(content);
+        const extracted = extractClaudeContentToParts(content, message);
         pushUserMessage(extracted, antigravityMessages);
       }
     } else if (message.role === 'assistant') {
@@ -149,7 +170,7 @@ export function generateClaudeRequestBody(claudeMessages, modelName, parameters,
     contents: claudeMessageToAntigravity(claudeMessages, enableThinking, actualModelName, token.sessionId, hasTools),
     tools: tools,
     generationConfig: generateGenerationConfig(parameters, enableThinking, actualModelName),
-    sessionId: token.sessionId,
+    // sessionId 由 buildRequestBody 基于 contents 内容自动生成稳定值（提升 Gemini 隐式缓存命中率）
     systemInstruction: systemPrompt
   }, token, actualModelName);
 }

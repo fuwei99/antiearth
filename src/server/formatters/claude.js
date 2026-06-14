@@ -84,7 +84,8 @@ export const createClaudeResponse = (
     usage: usage
       ? {
           input_tokens: usage.prompt_tokens || 0,
-          output_tokens: usage.completion_tokens || 0
+          output_tokens: usage.completion_tokens || 0,
+          cache_read_input_tokens: usage.cached_content_tokens || 0
         }
       : { input_tokens: 0, output_tokens: 0 }
   };

@@ -1,6 +1,6 @@
 // 转换器公共模块
 import config from '../../config/config.js';
-import { generateRequestId } from '../idGenerator.js';
+import { generateRequestId, generateStableSessionId } from '../idGenerator.js';
 import { getSignature, shouldCacheSignature, isImageModel } from '../thoughtSignatureCache.js';
 import { setToolNameMapping } from '../toolNameCache.js';
 import { getThoughtSignatureForModel, getToolSignatureForModel, sanitizeToolName, modelMapping, isEnableThinking, generateGenerationConfig } from '../utils.js';
@@ -58,9 +58,28 @@ export function getSignatureContext(sessionId, actualModelName, hasTools = false
  * @param {Array} antigravityMessages - 目标消息数组
  */
 export function pushUserMessage(extracted, antigravityMessages) {
+  // If extracted is already an array of parts
+  if (Array.isArray(extracted)) {
+    antigravityMessages.push({
+      role: 'user',
+      parts: extracted
+    });
+    return;
+  }
+  
+  const parts = [];
+  if (extracted?.parts) {
+    parts.push(...extracted.parts);
+  } else {
+    parts.push({ text: extracted?.text || ' ' });
+    if (extracted?.images) {
+      parts.push(...extracted.images);
+    }
+  }
+  
   antigravityMessages.push({
     role: 'user',
-    parts: [{ text: extracted?.text || ' ' }, ...extracted.images]
+    parts: parts
   });
 }
 
@@ -91,7 +110,7 @@ export function findFunctionNameById(toolCallId, antigravityMessages) {
  * @param {string} resultContent - 响应内容
  * @param {Array} antigravityMessages - 目标消息数组
  */
-export function pushFunctionResponse(toolCallId, functionName, resultContent, antigravityMessages) {
+export function pushFunctionResponse(toolCallId, functionName, resultContent, antigravityMessages, messageContext = {}) {
   const lastMessage = antigravityMessages[antigravityMessages.length - 1];
   const functionResponse = {
     functionResponse: {
@@ -100,6 +119,8 @@ export function pushFunctionResponse(toolCallId, functionName, resultContent, an
       response: { output: resultContent }
     }
   };
+
+  // Gemini gRPC 协议不支持 cache_control/promptCacheOptions，隐式缓存由后端自动处理
 
   if (lastMessage?.role === 'user' && lastMessage.parts.some(p => p.functionResponse)) {
     lastMessage.parts.push(functionResponse);
@@ -198,13 +219,17 @@ export function pushModelMessage({ parts, toolCalls, hasContent }, antigravityMe
 export function buildRequestBody({ contents, tools, generationConfig, sessionId, systemInstruction, useCredits }, token, actualModelName) {
   const hasTools = tools && tools.length > 0;
 
+  // 基于 contents 内容生成稳定的 sessionId（照抄 CPA 的 generateStableSessionID）
+  // 同一对话的延续请求会产生相同的 sessionId，提升 Gemini 隐式缓存命中率
+  const stableSessionId = sessionId || generateStableSessionId(contents);
+
   const requestBody = {
     project: token.projectId,
     requestId: generateRequestId(),
     request: {
       contents,
       generationConfig,
-      sessionId
+      sessionId: stableSessionId
     },
     model: actualModelName,
     userAgent: 'antigravity',
@@ -232,6 +257,48 @@ export function buildRequestBody({ contents, tools, generationConfig, sessionId,
 }
 
 /**
+ * 清理 part 对象中 Gemini gRPC 协议不支持的字段
+ * Gemini 不支持 cache_control / cacheControl / promptCacheOptions，隐式缓存由后端自动处理
+ * @param {Object} part - 原始 part 对象
+ * @returns {Object} 清理后的 part 对象（原地删除不支持字段）
+ */
+export function cleanPartFields(part) {
+  if (!part || typeof part !== 'object') return part;
+  delete part.cache_control;
+  delete part.cacheControl;
+  delete part.promptCacheOptions;
+  return part;
+}
+
+/**
+ * 递归清理 contents 数组中所有 parts 的不支持字段
+ * @param {Array} contents - Gemini 格式的 contents 数组
+ */
+export function cleanContentsParts(contents) {
+  if (!Array.isArray(contents)) return;
+  for (const content of contents) {
+    if (content.parts && Array.isArray(content.parts)) {
+      for (const part of content.parts) {
+        cleanPartFields(part);
+      }
+    }
+  }
+}
+
+/**
+ * 清理 systemInstruction 中 parts 的不支持字段
+ * @param {Object} systemInstruction - Gemini 格式的 systemInstruction 对象
+ */
+export function cleanSystemInstructionParts(systemInstruction) {
+  if (!systemInstruction || !systemInstruction.parts) return;
+  if (Array.isArray(systemInstruction.parts)) {
+    for (const part of systemInstruction.parts) {
+      cleanPartFields(part);
+    }
+  }
+}
+
+/**
  * 清理 system instruction part，移除 Gemini API 不支持的字段
  * @param {Object} part - 原始 part 对象
  * @returns {Object} 清理后的 part 对象（仅保留 text、inlineData 等 Gemini 支持的字段）
@@ -251,6 +318,7 @@ function cleanSystemPart(part) {
   if (part.fileData !== undefined) {
     cleanedPart.fileData = part.fileData;
   }
+  // Gemini gRPC 协议不支持 cache_control/promptCacheOptions，隐式缓存由后端自动处理，此处不再透传
 
   // 返回清理后的 part，如果没有有效内容则返回 null
   return Object.keys(cleanedPart).length > 0 ? cleanedPart : null;

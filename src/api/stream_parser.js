@@ -164,7 +164,8 @@ function parseAndEmitStreamChunk(line, state, callback) {
           usage: {
             prompt_tokens: usage.promptTokenCount || 0,
             completion_tokens: (usage.candidatesTokenCount || 0) + thoughtsTokens,
-            total_tokens: usage.totalTokenCount || 0
+            total_tokens: usage.totalTokenCount || 0,
+            cached_content_tokens: usage.cachedContentTokenCount || 0
           },
           rawUsage: usage
         });

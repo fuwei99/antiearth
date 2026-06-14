@@ -196,24 +196,42 @@ export function generateGenerationConfig(parameters, enableThinking, actualModel
  * @returns {string} 用户请求中的系统提示词（不包含萌萌和反重力官方提示词）
  */
 export function extractSystemInstruction(openaiMessages) {
-  if (!config.useContextSystemPrompt) return '';
+  if (!config.useContextSystemPrompt) return [];
 
-  const systemTexts = [];
+  const parts = [];
   for (const message of openaiMessages) {
     if (message.role === 'system') {
-      const content = typeof message.content === 'string'
-        ? message.content
-        : (Array.isArray(message.content)
-          ? message.content.filter(item => item.type === 'text').map(item => item.text).join('')
-          : '');
-      if (content.trim()) systemTexts.push(content.trim());
+      if (typeof message.content === 'string') {
+        parts.push({ text: message.content || ' ' });
+      } else if (Array.isArray(message.content)) {
+        for (const item of message.content) {
+          let part = null;
+          if (item.type === 'text') {
+            part = { text: item.text || ' ' };
+          } else if (item.type === 'image_url') {
+            const imageUrl = item.image_url?.url || '';
+            const match = imageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+            if (match) {
+              part = {
+                inlineData: {
+                  mimeType: `image/${match[1]}`,
+                  data: match[2]
+                }
+              };
+            }
+          }
+          if (part) {
+            // Gemini gRPC 协议不支持 cache_control/promptCacheOptions，隐式缓存由后端自动处理
+            parts.push(part);
+          }
+        }
+      }
     } else {
       break;
     }
   }
 
-  // 只返回用户请求中的系统提示词，萌萌和反重力官方提示词由 buildSystemInstruction 处理
-  return systemTexts.join('\n\n');
+  return parts;
 }
 
 // ==================== 图片请求准备 ====================

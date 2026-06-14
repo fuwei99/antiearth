@@ -74,6 +74,7 @@ export function toOpenAIUsage(usageMetadata) {
   return {
     prompt_tokens: usageMetadata.promptTokenCount || 0,
     completion_tokens: (usageMetadata.candidatesTokenCount || 0) + thoughtsTokens,
-    total_tokens: usageMetadata.totalTokenCount || 0
+    total_tokens: usageMetadata.totalTokenCount || 0,
+    cached_content_tokens: usageMetadata.cachedContentTokenCount || 0
   };
 }
