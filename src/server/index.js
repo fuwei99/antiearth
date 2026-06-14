@@ -17,6 +17,7 @@ import { errorHandler } from '../utils/errors.js';
 import { getChunkPoolSize, clearChunkPool } from './stream.js';
 import ipBlockManager from '../utils/ipBlockManager.js';
 import { initStore, getStore } from '../store/index.js';
+import { startLocalProxy } from '../utils/localProxy.js';
 import usageTracker from '../auth/usage_tracker.js';
 import quotaManager from '../auth/quota_manager.js';
 import tokenCooldownManager from '../auth/token_cooldown_manager.js';
@@ -198,6 +199,14 @@ app.use((req, res, next) => {
 
 // ==================== 异步初始化 + 服务器启动 ====================
 async function startServer() {
+  // 如果代理带认证，启动本地二级代理（TLS requester 不支持代理认证）
+  if (config.proxy && /\/\/[^:]+:[^@]+@/.test(config.proxy)) {
+    const { server: proxyServer, localUrl } = await startLocalProxy(config.proxy);
+    config.proxy = localUrl;
+    process.on('SIGINT', () => proxyServer.close());
+    process.on('SIGTERM', () => proxyServer.close());
+  }
+
   // 初始化 DataStore（云端同步）
   await initStore();
 

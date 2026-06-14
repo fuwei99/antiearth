@@ -3,7 +3,6 @@ import { OAUTH_CONFIG } from '../constants/oauth.js';
 import { TOKEN_REFRESH_BUFFER } from '../constants/index.js';
 import { TokenError } from '../utils/errors.js';
 import requesterManager from '../utils/requesterManager.js';
-import { httpRequest } from '../utils/httpClient.js';
 
 /**
  * Token 生命周期管理类
@@ -46,16 +45,16 @@ class TokenLifecycleManager {
     });
 
     try {
-      const response = await httpRequest({
+      const response = await requesterManager.fetch(OAUTH_CONFIG.TOKEN_URL, {
         method: 'POST',
-        url: OAUTH_CONFIG.TOKEN_URL,
         headers: {
           'Host': 'oauth2.googleapis.com',
           'User-Agent': 'Go-http-client/1.1',
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept-Encoding': 'gzip'
         },
-        data: body.toString(),
+        body: body.toString(),
+        okStatus: [200]
       });
 
       token.access_token = response.data.access_token;
@@ -64,8 +63,11 @@ class TokenLifecycleManager {
       
       return token;
     } catch (error) {
-      const statusCode = error.response?.status || 500;
-      const message = error.response?.data?.error?.message || error.message || '刷新 token 失败';
+      const statusCode = error.status || 500;
+      const rawBody = error.message;
+      const message = typeof rawBody === 'string' 
+        ? rawBody 
+        : (rawBody?.error?.message || '刷新 token 失败');
       throw new TokenError(message, tokenId, statusCode);
     }
   }

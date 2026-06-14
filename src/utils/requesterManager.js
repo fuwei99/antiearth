@@ -88,9 +88,7 @@ class RequesterManager {
   }
 
   get _useAxios() {
-    if (this._tlsInitFailed || !this._tlsRequester) return true;
-    if (config.proxy && /\/\/[^:]+:[^@]+@/.test(config.proxy)) return true;
-    return false;
+    return this._tlsInitFailed || !this._tlsRequester;
   }
 
   /**
