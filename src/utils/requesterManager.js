@@ -34,6 +34,10 @@ class RequesterManager {
   }
 
   async _doInit() {
+    if (!config.proxy) {
+      throw new Error('本地二级代理尚未就绪，已阻止 TLS 请求器直连');
+    }
+
     if (config.useNativeAxios === true) {
       this._tlsInitFailed = true;
       logger.info('[RequesterManager] 使用原生 axios 请求');

@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import axios from 'axios';
 import fs from 'fs';
 import crypto from 'crypto';
 import log from '../utils/logger.js';
@@ -6,6 +7,7 @@ import { deepMerge } from '../utils/deepMerge.js';
 import { getConfigPaths } from '../utils/paths.js';
 import { parseEnvFile } from '../utils/envParser.js';
 import { getStore } from '../store/index.js';
+import { getLocalProxy } from '../utils/localProxy.js';
 import {
   DEFAULT_SERVER_PORT,
   DEFAULT_SERVER_HOST,
@@ -250,32 +252,9 @@ try {
   // 忽略解析错误，使用 dotenv 的结果
 }
 
-// 获取代理配置：优先使用本地代理，其次使用 PROXY，最后使用系统代理环境变量
+// 业务请求只能使用本地二级代理，禁止直接读取或回退到任何上游代理。
 export function getProxyConfig() {
-  // 如果本地二级代理已启动，始终使用它（绕过 dotenv 热重载覆盖问题）
-  if (process.env._LOCAL_PROXY_URL) {
-    return process.env._LOCAL_PROXY_URL;
-  }
-  if (process.env.PROXY) {
-    return process.env.PROXY;
-  }
-  if (process.env.AUTH_PROXY) {
-    return process.env.AUTH_PROXY;
-  }
-
-  // 检查系统代理环境变量（按优先级）
-  const systemProxy = process.env.HTTPS_PROXY ||
-    process.env.https_proxy ||
-    process.env.HTTP_PROXY ||
-    process.env.http_proxy ||
-    process.env.ALL_PROXY ||
-    process.env.all_proxy;
-
-  if (systemProxy) {
-    log.info(`使用系统代理: ${systemProxy}`);
-  }
-
-  return systemProxy || null;
+  return getLocalProxy().localUrl;
 }
 
 // 默认 API 配置（Antigravity）— upstream.json 不存在时的 hardcoded fallback
@@ -519,18 +498,23 @@ function compareVersions(a, b) {
  */
 export async function checkAndUpdateVersion() {
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const proxyUrl = new URL(getProxyConfig());
+    const response = await axios.get(VERSION_CHECK_URL, {
+      timeout: 5000,
+      proxy: {
+        protocol: proxyUrl.protocol.replace(':', ''),
+        host: proxyUrl.hostname,
+        port: Number(proxyUrl.port),
+      },
+      validateStatus: () => true,
+    });
 
-    const response = await fetch(VERSION_CHECK_URL, { signal: controller.signal });
-    clearTimeout(timeout);
-
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       log.warn(`版本检查请求失败: HTTP ${response.status}`);
       return;
     }
 
-    const releases = await response.json();
+    const releases = response.data;
     if (!Array.isArray(releases) || releases.length === 0 || !releases[0].version) {
       log.warn('版本检查返回数据格式异常');
       return;

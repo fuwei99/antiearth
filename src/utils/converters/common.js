@@ -216,9 +216,8 @@ export function pushModelMessage({ parts, toolCalls, hasContent }, antigravityMe
 export function buildRequestBody({ contents, tools, generationConfig, systemInstruction, useCredits }, token, actualModelName) {
   const hasTools = tools && tools.length > 0;
 
-  // 基于 contents + systemInstruction 内容生成稳定的 sessionId
+  // 基于首条稳定用户内容生成 sessionId；动态 systemInstruction 不参与哈希。
   // 同一对话的延续请求会产生相同的 sessionId，提升 Gemini 隐式缓存命中率
-  // 系统提示词也参与哈希，避免不同提示词的对话误共享缓存
   const systemInstructionObj = buildSystemInstruction(systemInstruction);
   const stableSessionId = generateStableSessionId(contents, systemInstructionObj);
 

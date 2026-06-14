@@ -204,30 +204,11 @@ app.use((req, res, next) => {
 
 // ==================== 异步初始化 + 服务器启动 ====================
 async function startServer() {
-  // 如果配置了 AUTH_PROXY，启动本地二级代理，所有请求走本地代理
-  const authProxy = process.env.AUTH_PROXY || process.env.PROXY;
-  if (authProxy) {
-    const { server: proxyServer, localUrl } = await startLocalProxy(authProxy);
-    config.proxy = localUrl;
-    process.env.PROXY = localUrl;
-    process.env._LOCAL_PROXY_URL = localUrl;
-    delete process.env.AUTH_PROXY;
-    // 防止 dotenv 热重载时把 .env 里的原始 PROXY 覆盖回来
-    // 将 .env 中的 PROXY 行替换为本地代理地址
-    try {
-      const fs = await import('fs/promises');
-      const envPath = (await import('../config/config.js')).envPath;
-      if (envPath) {
-        const envContent = await fs.readFile(envPath, 'utf8');
-        const updated = envContent.replace(/^PROXY=.*$/m, `PROXY=${localUrl}`);
-        if (updated !== envContent) {
-          await fs.writeFile(envPath, updated, 'utf8');
-        }
-      }
-    } catch {}
-    process.on('SIGINT', () => proxyServer.close());
-    process.on('SIGTERM', () => proxyServer.close());
-  }
+  // 上游代理环境变量只由 localProxy 读取；其余请求只接触本地监听地址。
+  const { server: proxyServer, localUrl } = await startLocalProxy();
+  config.proxy = localUrl;
+  process.on('SIGINT', () => proxyServer.close());
+  process.on('SIGTERM', () => proxyServer.close());
 
   // 初始化 DataStore（云端同步）
   await initStore();

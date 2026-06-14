@@ -15,6 +15,7 @@ import { DEFAULT_RETRY_INTERVAL_MS, MODEL_LIST_CACHE_TTL, QA_PAIRS } from '../co
 import { createApiError } from '../utils/errors.js';
 import { generateCheckpointBody } from '../utils/checkPoint.js';
 import axios from 'axios';
+import { buildAxiosRequestConfig } from '../utils/httpClient.js';
 import {
   convertToToolCall,
   registerStreamMemoryCleanup
@@ -621,12 +622,12 @@ export async function sendLog(token, num, trajectoryId, conversationId, messageI
       const serializeLogBody = serializeData.data;
       headers["Content-Length"] = String(serializeLogBody.length);
 
-      await axios({
+      await axios(buildAxiosRequestConfig({
         method: 'POST',
         url: "https://play.googleapis.com/log",
         headers,
         data: serializeLogBody
-      });
+      }));
     }
   } catch (error) {
     throw error;

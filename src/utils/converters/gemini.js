@@ -199,8 +199,7 @@ export function generateGeminiRequestBody(geminiBody, modelName, token) {
     delete request.systemInstruction;
   }
 
-  // 基于 contents + systemInstruction 内容生成稳定的 sessionId
-  // 系统提示词也参与哈希，避免不同提示词的对话误共享缓存
+  // 基于首条稳定用户内容生成 sessionId；动态 systemInstruction 不参与哈希。
   request.sessionId = generateStableSessionId(request.contents, systemInstructionObj);
 
   // 清洗 contents 和 systemInstruction 中 Gemini gRPC 协议不支持的字段

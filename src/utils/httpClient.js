@@ -35,7 +35,9 @@ const httpsAgent = new https.Agent({
 
 // 统一构建代理配置
 function buildProxyConfig() {
-  if (!config.proxy) return false;
+  if (!config.proxy) {
+    throw new Error('本地二级代理尚未就绪，已阻止直接网络请求');
+  }
   try {
     const proxyUrl = new URL(config.proxy);
     const proxyConfig = {
@@ -50,8 +52,8 @@ function buildProxyConfig() {
       };
     }
     return proxyConfig;
-  } catch {
-    return false;
+  } catch (error) {
+    throw new Error(`本地二级代理地址无效: ${error.message}`);
   }
 }
 

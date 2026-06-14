@@ -19,11 +19,9 @@ function generateSessionId() {
 /**
  * 基于对话内容生成稳定的 Session ID（照抄 CPA 的 generateStableSessionID）
  * 
- * 遍历 contents 数组，找第一个 role=user 的消息，取 parts[0].text，
- * 同时拼接 systemInstruction 的文本内容，一起做 SHA256 哈希。
- * 
- * 这样即使同一用户消息，不同系统提示词也会产生不同 sessionId，
- * 避免不同对话误共享缓存。
+ * 遍历 contents 数组，使用第一条包含稳定用户内容的消息做 SHA256 哈希。
+ * systemInstruction 不参与哈希，因为 IDE 状态等动态系统上下文可能每轮变化，
+ * 会导致同一会话的 sessionId 漂移，破坏上游隐式缓存。
  * 
  * @param {Array} contents - Gemini 格式的 contents 数组 [{role, parts}]
  * @param {Object|string} [systemInstruction] - 系统提示词
@@ -32,30 +30,20 @@ function generateSessionId() {
 function generateStableSessionId(contents, systemInstruction) {
   let hashInput = '';
 
-  // 拼接系统提示词文本
-  if (systemInstruction) {
-    if (typeof systemInstruction === 'string' && systemInstruction.trim()) {
-      hashInput += systemInstruction.trim();
-    } else if (systemInstruction.parts && Array.isArray(systemInstruction.parts)) {
-      for (const part of systemInstruction.parts) {
-        if (part.text && typeof part.text === 'string' && part.text.trim()) {
-          hashInput += part.text.trim();
-        }
-      }
-    }
-  }
-
-  // 拼接第一个用户消息文本
+  // 只取首条包含文本的用户消息；后续轮次追加内容不会改变会话 ID。
   if (Array.isArray(contents)) {
     for (const content of contents) {
       if (content.role === 'user' && Array.isArray(content.parts)) {
+        const textParts = [];
         for (const part of content.parts) {
           if (part.text && typeof part.text === 'string' && part.text.trim()) {
-            hashInput += part.text.trim();
-            break;
+            textParts.push(part.text.trim());
           }
         }
-        if (hashInput.length > 0) break;
+        if (textParts.length > 0) {
+          hashInput = textParts.join('\n');
+          break;
+        }
       }
     }
   }
