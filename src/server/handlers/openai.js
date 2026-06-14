@@ -34,6 +34,18 @@ export const handleOpenAIRequest = async (req, res) => {
   const body = req.body || {};
   const { messages, model, stream = false, tools, ...params } = body;
 
+  const setRequestMeta = (sid, usage) => {
+    res.locals = res.locals || {};
+    if (sid) res.locals.sessionId = sid;
+    if (usage) {
+      const parts = [];
+      if (usage.prompt_tokens) parts.push(`in=${usage.prompt_tokens}`);
+      if (usage.completion_tokens) parts.push(`out=${usage.completion_tokens}`);
+      if (usage.cached_content_tokens || usage.cached_read_tokens) parts.push(`cache=${usage.cached_content_tokens || usage.cached_read_tokens}`);
+      if (parts.length) res.locals.usageInfo = parts.join(' ');
+    }
+  };
+
   try {
     const validation = validateIncomingChatRequest('openai', body);
     if (!validation.ok) {
@@ -111,6 +123,7 @@ export const handleOpenAIRequest = async (req, res) => {
             delta.thoughtSignature = reasoningSignature;
           }
           writeStreamData(res, createStreamChunk(id, created, model, delta));
+          setRequestMeta(token?.sessionId, usage);
           writeStreamData(res, { ...createStreamChunk(id, created, model, {}, 'stop'), usage });
         } else {
           let hasToolCall = false;
@@ -124,6 +137,7 @@ export const handleOpenAIRequest = async (req, res) => {
               return generateAssistantResponse(actualRequestBody, token, (data) => {
                 if (data.type === 'usage') {
                   usageData = data.usage;
+                  setRequestMeta(token?.sessionId, usageData);
                 } else if (data.type === 'reasoning') {
                   const delta = { reasoning_content: data.reasoning_content };
                   if (data.thoughtSignature && config.passSignatureToClient) {
@@ -185,11 +199,12 @@ export const handleOpenAIRequest = async (req, res) => {
             const actualRequestBody = shouldUseCredits 
               ? { ...requestBody, enabledCreditTypes: ["GOOGLE_ONE_AI"] }
               : requestBody;
-            return generateAssistantResponse(actualRequestBody, token, (data) => {
-              if (data.type === 'usage') {
-                usageData = data.usage;
-              } else if (data.type === 'reasoning') {
-                reasoningContent += data.reasoning_content || '';
+              return generateAssistantResponse(actualRequestBody, token, (data) => {
+                if (data.type === 'usage') {
+                  usageData = data.usage;
+                  setRequestMeta(token?.sessionId, usageData);
+                } else if (data.type === 'reasoning') {
+                  reasoningContent += data.reasoning_content || '';
                 if (data.thoughtSignature) {
                   reasoningSignature = data.thoughtSignature;
                 }
@@ -218,6 +233,7 @@ export const handleOpenAIRequest = async (req, res) => {
           }
         }
 
+        setRequestMeta(token?.sessionId, usageData);
         res.json(createOpenAIChatCompletionResponse({
           id,
           created,
@@ -267,7 +283,7 @@ export const handleOpenAIRequest = async (req, res) => {
         }
       }
 
-      // 使用预构建的响应对象，减少内存分配
+      setRequestMeta(token?.sessionId, usage);
       res.json(createOpenAIChatCompletionResponse({
         id,
         created,

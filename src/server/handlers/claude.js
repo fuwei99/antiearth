@@ -53,6 +53,18 @@ export const handleClaudeRequest = async (req, res, isStream) => {
   const body = req.body || {};
   const { messages, model, system, tools, ...rawParams } = body;
 
+  const setRequestMeta = (sid, usage) => {
+    res.locals = res.locals || {};
+    if (sid) res.locals.sessionId = sid;
+    if (usage) {
+      const parts = [];
+      if (usage.prompt_tokens) parts.push(`in=${usage.prompt_tokens}`);
+      if (usage.completion_tokens) parts.push(`out=${usage.completion_tokens}`);
+      if (usage.cached_content_tokens || usage.cached_read_tokens) parts.push(`cache=${usage.cached_content_tokens || usage.cached_read_tokens}`);
+      if (parts.length) res.locals.usageInfo = parts.join(' ');
+    }
+  };
+
   try {
     const validation = validateIncomingChatRequest('claude', body);
     if (!validation.ok) {
@@ -176,6 +188,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
           }));
 
           clearInterval(heartbeatTimer);
+          setRequestMeta(token?.sessionId, usage);
           res.end();
           return;
         }
@@ -188,6 +201,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
             return generateAssistantResponse(actualRequestBody, token, (data) => {
               if (data.type === 'usage') {
                 usageData = data.usage;
+                setRequestMeta(token?.sessionId, usageData);
               } else if (data.type === 'reasoning') {
                 // 思维链内容 - 使用 thinking 类型
                 if (!reasoningSent) {
@@ -355,6 +369,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
             return generateAssistantResponse(actualRequestBody, token, (data) => {
               if (data.type === 'usage') {
                 usageData = data.usage;
+                setRequestMeta(token?.sessionId, usageData);
               } else if (data.type === 'reasoning') {
                 reasoningContent += data.reasoning_content || '';
                 if (data.thoughtSignature) {
@@ -384,6 +399,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
           { passSignatureToClient: config.passSignatureToClient }
         );
 
+        setRequestMeta(token?.sessionId, usageData);
         res.json(response);
       } catch (error) {
         logger.error('Claude 假非流请求失败:', error.message);
@@ -408,6 +424,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
       );
 
       const stopReason = toolCalls.length > 0 ? 'tool_use' : 'end_turn';
+      setRequestMeta(token?.sessionId, usage);
       const response = createClaudeResponse(
         msgId,
         model,

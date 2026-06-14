@@ -87,7 +87,12 @@ app.use((req, res, next) => {
   if (!ignorePaths.some(p => fullPath.startsWith(p))) {
     const start = Date.now();
     res.on('finish', () => {
-      logger.request(req.method, fullPath, res.statusCode, Date.now() - start);
+      const duration = Date.now() - start;
+      const { sessionId, usageInfo } = res.locals || {};
+      const extra = [];
+      if (sessionId) extra.push(`sid=${sessionId.slice(0, 8)}`);
+      if (usageInfo) extra.push(usageInfo);
+      logger.request(req.method, fullPath, res.statusCode, duration, extra.join(' '));
     });
   }
   next();
