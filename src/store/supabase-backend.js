@@ -148,7 +148,7 @@ class SupabaseBackend {
     }
 
     try {
-      const usages = await this.pool.query('SELECT account_id, data FROM usage');
+      const usages = await this.pool.query("SELECT account_id, data FROM usage WHERE model_id = '*'");
       if (usages.rows.length > 0) {
         const usageObj = {};
         for (const row of usages.rows) {
@@ -241,13 +241,10 @@ class SupabaseBackend {
       } else if (info.table === 'usage') {
         await this.pool.query('DELETE FROM usage');
         for (const [accountId, data] of Object.entries(value || {})) {
-          const summary = data.summary || {};
-          for (const [modelId, modelData] of Object.entries(summary)) {
-            await this.pool.query(
-              `INSERT INTO usage (account_id, model_id, data, created_at) VALUES ($1, $2, $3, NOW())`,
-              [accountId, modelId, JSON.stringify(modelData)]
-            );
-          }
+          await this.pool.query(
+            `INSERT INTO usage (account_id, model_id, data, created_at) VALUES ($1, $2, $3, NOW())`,
+            [accountId, '*', JSON.stringify(data)]
+          );
         }
       } else if (info.table === 'quotas') {
         for (const [accountId, data] of Object.entries(value || {})) {
