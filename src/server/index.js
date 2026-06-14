@@ -203,6 +203,7 @@ async function startServer() {
   if (config.proxy && /\/\/[^:]+:[^@]+@/.test(config.proxy)) {
     const { server: proxyServer, localUrl } = await startLocalProxy(config.proxy);
     config.proxy = localUrl;
+    process.env.PROXY = localUrl;
     process.on('SIGINT', () => proxyServer.close());
     process.on('SIGTERM', () => proxyServer.close());
   }
