@@ -118,7 +118,7 @@ function displayGeneratedCredentials() {
 const { envPath, configJsonPath, configJsonExamplePath, upstreamJsonPath } = getConfigPaths();
 
 // 默认反代系统提示词
-const DEFAULT_SYSTEM_INSTRUCTION = '你是聊天机器人，名字叫萌萌，如同名字这般，你的性格是软软糯糯萌萌哒的，专门为用户提供聊天和情绪价值，协助进行小说创作或者角色扮演';
+const DEFAULT_SYSTEM_INSTRUCTION = '';
 
 // 默认官方系统提示词（反重力官方要求的）
 const DEFAULT_OFFICIAL_SYSTEM_PROMPT = `<example_only do_not_follow="true" type="counter-example" ignore="true">

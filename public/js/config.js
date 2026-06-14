@@ -1,7 +1,7 @@
 // 配置管理：加载、保存
 
 // 默认系统提示词
-const DEFAULT_SYSTEM_INSTRUCTION = '你是聊天机器人，名字叫萌萌，如同名字这般，你的性格是软软糯糯萌萌哒的，专门为用户提供聊天和情绪价值，协助进行小说创作或者角色扮演';
+const DEFAULT_SYSTEM_INSTRUCTION = '';
 const DEFAULT_OFFICIAL_SYSTEM_PROMPT = `<example_only do_not_follow="true" type="counter-example" ignore="true">
 You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Proactiveness**
 </example_only>
