@@ -81,7 +81,7 @@ export const DEFAULT_RETRY_TIMES = 3;
  * 503 直接按固定间隔重试；429 只有在上游响应体提供等待间隔/恢复时间时才会重试。
  * @type {number}
  */
-export const DEFAULT_RETRY_INTERVAL_MS = 10000;
+export const DEFAULT_RETRY_INTERVAL_MS = 2000;
 
 /**
  * 默认最大请求体大小
