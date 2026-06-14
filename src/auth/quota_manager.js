@@ -94,7 +94,7 @@ class QuotaManager {
 
   _debouncedSave() {
     if (this._saveTimer) clearTimeout(this._saveTimer);
-    this._saveTimer = setTimeout(() => {
+    this._saveTimer = setTimeout(async () => {
       this.saveToFile();
       const store = getStore();
       if (store.isCloudEnabled) {
@@ -102,7 +102,7 @@ class QuotaManager {
         this.cache.forEach((value, key) => {
           quotas[key] = value;
         });
-        store.set('quotas', quotas).catch(e => {
+        store.setAndWait('quotas', quotas).catch(e => {
           log.warn(`[QuotaManager] cloud write failed: ${e.message}`);
         });
       }

@@ -112,7 +112,7 @@ class TokenCooldownManager {
 
   _debouncedSave() {
     if (this._saveTimer) clearTimeout(this._saveTimer);
-    this._saveTimer = setTimeout(() => {
+    this._saveTimer = setTimeout(async () => {
       this.saveToFile();
       const store = getStore();
       if (store.isCloudEnabled) {
@@ -128,7 +128,7 @@ class TokenCooldownManager {
             cooldownsObj[tokenId] = validGroups;
           }
         });
-        store.set('cooldowns', cooldownsObj).catch(e => {
+        store.setAndWait('cooldowns', cooldownsObj).catch(e => {
           log.warn(`[CooldownManager] cloud write failed: ${e.message}`);
         });
       }

@@ -150,7 +150,6 @@ function buildHeaders(token, hostOverride = null) {
   return {
     'Host': hostOverride || config.api.host,
     'User-Agent': config.api.userAgent,
-    'Transfer-Encoding': 'chunked',
     'Authorization': `Bearer ${token.access_token}`,
     'Content-Type': 'application/json',
     'Accept-Encoding': 'gzip'

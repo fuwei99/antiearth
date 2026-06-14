@@ -88,6 +88,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
       token = nextToken;
       tokenId = await tokenManager.getTokenId(token);
       requestBody = generateClaudeRequestBody(messages, model, parameters, tools, system, token);
+      setRequestMeta(requestBody?.request?.sessionId);
       if (isImageModel) {
         prepareImageRequest(requestBody);
       }

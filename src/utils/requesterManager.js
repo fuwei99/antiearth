@@ -253,32 +253,41 @@ class RequesterManager {
       .then((response) => {
         const status = response.status;
         streamResponse._status = status;
+        streamResponse._startInfo = { status, headers: response.headers };
         if (streamResponse._onStart) {
-          streamResponse._onStart({ status, headers: response.headers });
+          streamResponse._onStart(streamResponse._startInfo);
         }
 
         response.data.on('data', (chunk) => {
           const text = typeof chunk === 'string' ? chunk : decoder.write(chunk);
           if (streamResponse._onData) {
             streamResponse._onData(text);
+          } else {
+            streamResponse._pendingData.push(text);
           }
         });
 
         response.data.on('end', () => {
           if (streamResponse._onEnd) {
             streamResponse._onEnd();
+          } else {
+            streamResponse._ended = true;
           }
         });
 
         response.data.on('error', (err) => {
           if (streamResponse._onError) {
             streamResponse._onError(err);
+          } else {
+            streamResponse._pendingError = err;
           }
         });
       })
       .catch((err) => {
         if (streamResponse._onError) {
           streamResponse._onError(err);
+        } else {
+          streamResponse._pendingError = err;
         }
       });
 
@@ -298,14 +307,41 @@ class AxiosStreamResponse {
     this._onData = null;
     this._onEnd = null;
     this._onError = null;
+    this._startInfo = null;
+    this._pendingData = [];
+    this._pendingError = null;
+    this._ended = false;
   }
 
   get status() { return this._status; }
 
-  onStart(callback) { this._onStart = callback; return this; }
-  onData(callback)  { this._onData  = callback; return this; }
-  onEnd(callback)   { this._onEnd   = callback; return this; }
-  onError(callback) { this._onError = callback; return this; }
+  onStart(callback) {
+    this._onStart = callback;
+    if (this._startInfo) callback(this._startInfo);
+    return this;
+  }
+
+  onData(callback) {
+    this._onData = callback;
+    for (const chunk of this._pendingData.splice(0)) callback(chunk);
+    return this;
+  }
+
+  onEnd(callback) {
+    this._onEnd = callback;
+    if (this._ended) callback();
+    return this;
+  }
+
+  onError(callback) {
+    this._onError = callback;
+    if (this._pendingError) {
+      const error = this._pendingError;
+      this._pendingError = null;
+      callback(error);
+    }
+    return this;
+  }
 }
 
 // ==================== 单例导出 ====================

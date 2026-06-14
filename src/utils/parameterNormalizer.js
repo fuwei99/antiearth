@@ -150,7 +150,11 @@ export function toGenerationConfig(normalized, enableThinking, actualModelName) 
   const defaultThinkingBudget = modelConfig?.thinkingConfig?.thinkingBudget ?? config.defaults.thinking_budget ?? 1024;
   let thinkingBudget = 0;
   let actualEnableThinking = enableThinking;
-  let maxOutputTokens = normalized.max_tokens || normalized.max_completion_tokens;
+  const requestedMaxOutputTokens = normalized.max_tokens || normalized.max_completion_tokens;
+  const configuredMaxOutputTokens = Number(config.defaults.max_tokens);
+  let maxOutputTokens = Number.isFinite(configuredMaxOutputTokens) && configuredMaxOutputTokens > 0
+    ? Math.min(requestedMaxOutputTokens, configuredMaxOutputTokens)
+    : requestedMaxOutputTokens;
   if (enableThinking) {
     if (normalized.thinking_budget !== undefined) {
       thinkingBudget = normalized.thinking_budget || normalized.thinkingBudget;

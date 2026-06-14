@@ -527,7 +527,7 @@ export async function checkAndUpdateVersion() {
       log.info(`发现新版本: ${currentVersion} → ${latestVersion}，正在更新配置...`);
 
       // 更新 config.json
-      saveConfigJson({ api: { version: latestVersion } });
+      await saveConfigJson({ api: { version: latestVersion } });
 
       // 更新内存中的配置
       config.api.ideVersion = latestVersion;
@@ -587,15 +587,13 @@ export function getUpstreamConfig() {
   return {};
 }
 
-export function saveConfigJson(data) {
+export async function saveConfigJson(data) {
   const existing = getConfigJson();
   const merged = deepMerge(existing, data);
   fs.writeFileSync(configJsonPath, JSON.stringify(merged, null, 2), 'utf8');
 
   const store = getStore();
   if (store.isCloudEnabled) {
-    store.set('config', merged).catch(e => {
-      log.warn(`[Config] cloud write failed: ${e.message}`);
-    });
+    await store.setAndWait('config', merged);
   }
 }

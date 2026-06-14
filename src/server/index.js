@@ -7,6 +7,7 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import path from 'path';
+import fs from 'fs';
 import requesterManager from '../utils/requesterManager.js';
 import logger from '../utils/logger.js';
 import logWsServer from '../utils/logWsServer.js';
@@ -21,6 +22,7 @@ import { startLocalProxy, getLocalProxy } from '../utils/localProxy.js';
 import usageTracker from '../auth/usage_tracker.js';
 import quotaManager from '../auth/quota_manager.js';
 import tokenCooldownManager from '../auth/token_cooldown_manager.js';
+import { reloadConfig } from '../utils/configReloader.js';
 
 // 路由模块
 import adminRouter from '../routes/admin.js';
@@ -63,6 +65,30 @@ app.use(cors({
 }));
 app.use(cookieParser());
 app.use(express.json({ limit: config.security.maxRequestSize }));
+
+// 本地调试：保存客户端发送到 Claude 兼容接口的原始 JSON，不记录请求头。
+if (process.env.CAPTURE_MESSAGES === '1') {
+  const captureDir = path.join(process.cwd(), 'data', 'request-captures');
+  fs.mkdirSync(captureDir, { recursive: true });
+  app.use('/v1/messages', (req, res, next) => {
+    if (req.method === 'POST') {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `${timestamp}-${process.pid}.json`;
+      const payload = {
+        capturedAt: new Date().toISOString(),
+        method: req.method,
+        path: req.originalUrl,
+        body: req.body
+      };
+      fs.writeFileSync(
+        path.join(captureDir, filename),
+        JSON.stringify(payload, null, 2),
+        'utf8'
+      );
+    }
+    next();
+  });
+}
 
 // 静态文件服务
 app.use('/images', express.static(path.join(publicDir, 'images')));
@@ -212,6 +238,11 @@ async function startServer() {
 
   // 初始化 DataStore（云端同步）
   await initStore();
+  reloadConfig();
+  memoryManager.setCleanupInterval(config.server.memoryCleanupInterval);
+  if (getStore().isCloudLoaded && await getStore().has('config')) {
+    logger.info('[Config] 已应用云端同步后的运行配置');
+  }
 
   // 从 store 同步数据到各业务模块
   await Promise.all([

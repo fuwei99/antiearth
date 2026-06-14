@@ -138,11 +138,11 @@ class UsageTracker {
 
   _debouncedSave() {
     if (this._saveTimer) clearTimeout(this._saveTimer);
-    this._saveTimer = setTimeout(() => {
+    this._saveTimer = setTimeout(async () => {
       this.saveToFile();
       const store = getStore();
       if (store.isCloudEnabled) {
-        store.set('usage', this.usageData).catch(e => {
+        store.setAndWait('usage', this.usageData).catch(e => {
           log.warn(`[UsageTracker] cloud write failed: ${e.message}`);
         });
       }

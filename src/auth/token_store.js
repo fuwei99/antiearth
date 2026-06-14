@@ -246,9 +246,7 @@ class TokenStore {
 
         const store = getStore();
         if (store.isCloudEnabled) {
-          store.set(this._storeKey, { tokens: normalized, _salt: salt }).catch(e => {
-            log.warn(`[TokenStore] cloud write failed: ${e.message}`);
-          });
+          await store.setAndWait(this._storeKey, { tokens: normalized, _salt: salt });
         }
       } catch (error) {
         log.error('保存账号配置文件失败:', error.message);
@@ -326,9 +324,7 @@ class TokenStore {
 
           const store = getStore();
           if (store.isCloudEnabled) {
-            store.set(this._storeKey, { tokens: mergedTokens, _salt: salt }).catch(e => {
-              log.warn(`[TokenStore] cloud write failed: ${e.message}`);
-            });
+            await store.setAndWait(this._storeKey, { tokens: mergedTokens, _salt: salt });
           }
         } catch (error) {
           log.error('保存账号配置文件失败:', error.message);

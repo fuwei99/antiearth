@@ -427,7 +427,7 @@ router.get('/config', cookieAuthMiddleware, (req, res) => {
 });
 
 // 更新配置
-router.put('/config', cookieAuthMiddleware, (req, res) => {
+router.put('/config', cookieAuthMiddleware, async (req, res) => {
   try {
     const { env: envUpdates, json: jsonUpdates, password } = req.body;
 
@@ -452,7 +452,7 @@ router.put('/config', cookieAuthMiddleware, (req, res) => {
     }
 
     if (envUpdates) updateEnvFile(envPath, envUpdates);
-    if (jsonUpdates) saveConfigJson(deepMerge(getConfigJson(), jsonUpdates));
+    if (jsonUpdates) await saveConfigJson(deepMerge(getConfigJson(), jsonUpdates));
 
     dotenv.config({ override: true });
     reloadConfig();
@@ -480,7 +480,7 @@ router.get('/rotation', cookieAuthMiddleware, (req, res) => {
 });
 
 // 更新轮询策略配置
-router.put('/rotation', cookieAuthMiddleware, (req, res) => {
+router.put('/rotation', cookieAuthMiddleware, async (req, res) => {
   try {
     const { strategy, requestCount } = req.body;
 
@@ -501,7 +501,7 @@ router.put('/rotation', cookieAuthMiddleware, (req, res) => {
     if (!currentConfig.rotation) currentConfig.rotation = {};
     if (strategy) currentConfig.rotation.strategy = strategy;
     if (requestCount) currentConfig.rotation.requestCount = requestCount;
-    saveConfigJson(currentConfig);
+    await saveConfigJson(currentConfig);
 
     // 重载配置到内存
     reloadConfig();

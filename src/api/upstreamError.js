@@ -33,7 +33,16 @@ export async function readUpstreamErrorBody(error) {
   }
 
   if (data !== undefined && data !== null) return String(data);
-  if (error.message) return String(error.message);
+  if (error.message) {
+    if (typeof error.message === 'object') {
+      try {
+        return JSON.stringify(error.message, null, 2);
+      } catch {
+        return String(error.message);
+      }
+    }
+    return String(error.message);
+  }
   return String(error);
 }
 

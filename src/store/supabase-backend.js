@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { createHash } from 'crypto';
 import { log } from '../utils/logger.js';
 
 const { Pool } = pg;
@@ -115,11 +116,22 @@ class SupabaseBackend {
     try {
       const configs = await this.pool.query('SELECT key, value FROM configs');
       if (configs.rows.length > 0) {
-        const configObj = {};
+        const rowsByKey = new Map(configs.rows.map(row => [row.key, row.value]));
+        const namespacedConfig = rowsByKey.get('config');
+        const legacyConfig = {};
         for (const row of configs.rows) {
-          configObj[row.key] = row.value;
+          if (row.key !== 'config' && row.key !== 'security' && row.key !== 'ip_blocklist') {
+            legacyConfig[row.key] = row.value;
+          }
         }
-        result.set('config', configObj);
+        const configValue = namespacedConfig && typeof namespacedConfig === 'object'
+          ? namespacedConfig
+          : legacyConfig;
+        if (Object.keys(configValue).length > 0) {
+          result.set('config', configValue);
+        }
+        if (rowsByKey.has('security')) result.set('security', rowsByKey.get('security'));
+        if (rowsByKey.has('ip_blocklist')) result.set('ip_blocklist', rowsByKey.get('ip_blocklist'));
       }
     } catch (e) {
       log.warn(`[SupabaseBackend] loadAll configs failed: ${e.message}`);
@@ -221,22 +233,32 @@ class SupabaseBackend {
 
     try {
       if (info.table === 'configs') {
-        for (const [k, v] of Object.entries(value || {})) {
-          await this.pool.query(
-            `INSERT INTO configs (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
-            [k, JSON.stringify(v)]
-          );
-        }
+        await this.pool.query(
+          `INSERT INTO configs (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
+          [key, JSON.stringify(value || {})]
+        );
       } else if (info.table === 'accounts') {
         const type = key === 'geminicli_accounts' ? 'geminicli' : 'antigravity';
         const tokens = Array.isArray(value) ? value : (value.tokens || []);
         const salt = value._salt || '';
+        const desiredIds = [];
         for (const token of tokens) {
-          const id = token.tokenId || token.refresh_token || Math.random().toString(36);
+          const identity = token.refresh_token || token.access_token || JSON.stringify(token);
+          const tokenId = token.tokenId || createHash('sha256').update(identity + salt).digest('hex').substring(0, 16);
+          const id = `${type}:${tokenId}`;
+          desiredIds.push(id);
           await this.pool.query(
             `INSERT INTO accounts (id, type, data, salt, updated_at) VALUES ($1, $2, $3, $4, NOW()) ON CONFLICT (id) DO UPDATE SET data = $3, salt = $4, type = $2, updated_at = NOW()`,
             [id, type, JSON.stringify(token), salt]
           );
+        }
+        if (desiredIds.length > 0) {
+          await this.pool.query(
+            `DELETE FROM accounts WHERE type = $1 AND id NOT IN (${desiredIds.map((_, i) => `$${i + 2}`).join(',')})`,
+            [type, ...desiredIds]
+          );
+        } else {
+          await this.pool.query('DELETE FROM accounts WHERE type = $1', [type]);
         }
       } else if (info.table === 'usage') {
         await this.pool.query('DELETE FROM usage');
@@ -256,15 +278,29 @@ class SupabaseBackend {
         const allIds = Object.keys(value || {});
         if (allIds.length > 0) {
           await this.pool.query(`DELETE FROM quotas WHERE account_id NOT IN (${allIds.map((_, i) => `$${i + 1}`).join(',')})`, allIds);
+        } else {
+          await this.pool.query('DELETE FROM quotas');
         }
       } else if (info.table === 'token_cooldowns') {
+        const activeKeys = [];
         for (const [accountId, groups] of Object.entries(value || {})) {
           for (const [groupKey, data] of Object.entries(groups || {})) {
             if (!data || !data.until) continue;
+            activeKeys.push(`${accountId}\u0000${groupKey}`);
             const untilDate = new Date(data.until);
             await this.pool.query(
               `INSERT INTO token_cooldowns (account_id, model_id, data, cooldown_until) VALUES ($1, $2, $3, $4) ON CONFLICT (account_id, model_id) DO UPDATE SET data = $3, cooldown_until = $4`,
               [accountId, groupKey, JSON.stringify(data), untilDate.toISOString()]
+            );
+          }
+        }
+        const existing = await this.pool.query('SELECT account_id, model_id FROM token_cooldowns');
+        const activeSet = new Set(activeKeys);
+        for (const row of existing.rows) {
+          if (!activeSet.has(`${row.account_id}\u0000${row.model_id}`)) {
+            await this.pool.query(
+              'DELETE FROM token_cooldowns WHERE account_id = $1 AND model_id = $2',
+              [row.account_id, row.model_id]
             );
           }
         }

@@ -4,6 +4,8 @@ import { log } from '../utils/logger.js';
 
 const RETRY_INTERVAL = 30000;
 const MAX_RETRIES = 5;
+const INIT_RETRY_INTERVAL = 2000;
+const INIT_MAX_RETRIES = 5;
 
 class DataStore {
   constructor(options = {}) {
@@ -23,10 +25,15 @@ class DataStore {
     this._retryQueue = [];
     this._retryTimer = null;
     this._initialized = false;
+    this._cloudLoaded = false;
   }
 
   get isCloudEnabled() {
     return this.supabaseBackend != null;
+  }
+
+  get isCloudLoaded() {
+    return this._cloudLoaded;
   }
 
   async init() {
@@ -36,10 +43,28 @@ class DataStore {
     for (const [k, v] of localData) this.cache.set(k, v);
 
     if (this.supabaseBackend) {
-      try {
-        const cloudData = await this.supabaseBackend.loadAll();
+      let cloudData = null;
+      let lastError = null;
+      for (let attempt = 1; attempt <= INIT_MAX_RETRIES; attempt++) {
+        try {
+          cloudData = await this.supabaseBackend.loadAll();
+          break;
+        } catch (e) {
+          lastError = e;
+          if (attempt < INIT_MAX_RETRIES) {
+            log.warn(`[DataStore] 云端加载失败，第 ${attempt}/${INIT_MAX_RETRIES} 次，${INIT_RETRY_INTERVAL}ms 后重试: ${e.message}`);
+            await new Promise(resolve => setTimeout(resolve, INIT_RETRY_INTERVAL));
+          }
+        }
+      }
+
+      if (cloudData) {
+        this._cloudLoaded = true;
         if (this.syncDirection === 'cloud-wins') {
-          for (const [k, v] of cloudData) this.cache.set(k, v);
+          for (const [k, v] of cloudData) {
+            this.cache.set(k, v);
+            await this.fileBackend.set(k, v);
+          }
         } else {
           for (const [k, v] of localData) {
             if (!cloudData.has(k)) {
@@ -50,8 +75,8 @@ class DataStore {
         this._startRetryLoop();
         this._startCleanupTimer();
         log.info(`[DataStore] 云端存储已启用 (mode=${this.storageMode}, sync=${this.syncDirection})`);
-      } catch (e) {
-        log.warn(`[DataStore] 云端加载失败，仅使用本地数据: ${e.message}`);
+      } else {
+        log.warn(`[DataStore] 云端加载重试耗尽，仅使用本地数据: ${lastError?.message || 'unknown error'}`);
       }
     }
 
@@ -78,6 +103,14 @@ class DataStore {
     this._asyncCloudSet(key, value);
   }
 
+  async setAndWait(key, value) {
+    this.cache.set(key, value);
+    await this.fileBackend.set(key, value);
+    if (this.supabaseBackend) {
+      await this.supabaseBackend.set(key, value);
+    }
+  }
+
   async delete(key) {
     this.cache.delete(key);
     await this.fileBackend.delete(key);
@@ -87,6 +120,7 @@ class DataStore {
   async reload() {
     this.cache.clear();
     this._initialized = false;
+    this._cloudLoaded = false;
     await this.init();
   }
 
