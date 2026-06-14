@@ -252,7 +252,9 @@ try {
 
 // 获取代理配置：优先使用 PROXY，其次使用系统代理环境变量
 export function getProxyConfig() {
-  // 优先使用显式配置的 PROXY
+  if (process.env.AUTH_PROXY) {
+    return process.env.AUTH_PROXY;
+  }
   if (process.env.PROXY) {
     return process.env.PROXY;
   }
