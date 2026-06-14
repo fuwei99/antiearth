@@ -21,6 +21,7 @@ config.json
 Thumbs.db
 
 data/
+test/
 test/*.png
 test/*.jpeg
 public/images
