@@ -270,7 +270,7 @@ class TokenStore {
    * - 仅按 refresh_token 匹配并更新已有记录
    * - 未出现在 activeTokens 中的记录（例如已禁用账号）保持不变
    * 使用防抖机制合并频繁的写入请求
-   * @param {Array<object>} activeTokens - 内存中的启用 token 列表（可能包含 sessionId）
+   * @param {Array<object>} activeTokens - 内存中的启用 token 列表
    * @param {object|null} tokenToUpdate - 如果只需要单个更新，可传入该 token 以减少遍历
    */
   async mergeActiveTokens(activeTokens, tokenToUpdate = null) {
@@ -283,8 +283,7 @@ class TokenStore {
         if (!targetToken) return;
         const index = allTokens.findIndex(t => t.refresh_token === targetToken.refresh_token);
         if (index !== -1) {
-          const { sessionId, ...plain } = targetToken;
-          allTokens[index] = { ...allTokens[index], ...plain };
+          allTokens[index] = { ...allTokens[index], ...targetToken };
         }
       };
 
@@ -294,7 +293,7 @@ class TokenStore {
       }
 
       if (allTokens.length === 0 && hasActiveTokens) {
-        return activeTokens.map(({ sessionId, ...plain }) => ({ ...plain }));
+        return activeTokens.map(t => ({ ...t }));
       }
 
       if (tokenToUpdate) {

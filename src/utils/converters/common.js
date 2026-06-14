@@ -7,19 +7,18 @@ import { getThoughtSignatureForModel, getToolSignatureForModel, sanitizeToolName
 
 /**
  * 获取签名上下文
- * @param {string} sessionId - 会话 ID
  * @param {string} actualModelName - 实际模型名称
  * @param {boolean} hasTools - 请求中是否包含工具定义
  * @returns {Object} 包含思维签名、思考内容和工具签名的对象
  */
-export function getSignatureContext(sessionId, actualModelName, hasTools = false) {
+export function getSignatureContext(actualModelName, hasTools = false) {
   const isImage = isImageModel(actualModelName);
 
   // 判断是否应该从缓存获取签名
   const shouldGetCached = shouldCacheSignature({ hasTools, isImageModel: isImage });
 
   // 从缓存获取签名+内容对象（现在返回 { signature, content } 或 null）
-  const cachedEntry = shouldGetCached ? getSignature(sessionId, actualModelName, { hasTools }) : null;
+  const cachedEntry = shouldGetCached ? getSignature(actualModelName, { hasTools }) : null;
 
   // 构建返回值：优先使用缓存（包含签名+内容），回退到兜底签名（仅签名，无内容）
   let reasoningSignature = null;
@@ -170,11 +169,10 @@ export function createFunctionCallPart(id, name, args, signature = null) {
 /**
  * 处理工具名称映射
  * @param {string} originalName - 原始名称
- * @param {string} sessionId - 会话 ID
  * @param {string} actualModelName - 实际模型名称
  * @returns {string} 清理后的安全名称
  */
-export function processToolName(originalName, sessionId, actualModelName) {
+export function processToolName(originalName, actualModelName) {
   const safeName = sanitizeToolName(originalName);
   if (actualModelName && safeName !== originalName) {
     setToolNameMapping(actualModelName, safeName, originalName);
@@ -209,21 +207,20 @@ export function pushModelMessage({ parts, toolCalls, hasContent }, antigravityMe
  * @param {Array} options.contents - 消息内容
  * @param {Array} options.tools - 工具列表
  * @param {Object} options.generationConfig - 生成配置
- * @param {string} options.sessionId - 会话 ID
  * @param {string} options.systemInstruction - 系统指令
  * @param {boolean} options.useCredits - 是否使用积分（可选，用于重试时强制使用积分）
  * @param {Object} token - Token 对象
  * @param {string} actualModelName - 实际模型名称
  * @returns {Object} 请求体
  */
-export function buildRequestBody({ contents, tools, generationConfig, sessionId, systemInstruction, useCredits }, token, actualModelName) {
+export function buildRequestBody({ contents, tools, generationConfig, systemInstruction, useCredits }, token, actualModelName) {
   const hasTools = tools && tools.length > 0;
 
   // 基于 contents + systemInstruction 内容生成稳定的 sessionId
   // 同一对话的延续请求会产生相同的 sessionId，提升 Gemini 隐式缓存命中率
   // 系统提示词也参与哈希，避免不同提示词的对话误共享缓存
   const systemInstructionObj = buildSystemInstruction(systemInstruction);
-  const stableSessionId = sessionId || generateStableSessionId(contents, systemInstructionObj);
+  const stableSessionId = generateStableSessionId(contents, systemInstructionObj);
 
   const requestBody = {
     project: token.projectId,

@@ -68,7 +68,6 @@ export function generateCheckpointBody(token){
                     thinkingBudget: 0
                 }
             },
-            sessionId: token.sessionId,
             systemInstruction: "You are an expert AI coding assistant with extreme attention to detail. You are pair programming with a USER to solve a coding task.\nYou provide clear, detailed, and accurate summaries of conversations. When asked, you focus on outlining the USER's main goals\nand listing key information and context discussed. Your response should be well-organized and reflect the essence of the dialog.\nNEVER lie or make things up. Your summaries should always be grounded in the conversation."
         },
         token,

@@ -123,7 +123,7 @@ export const handleOpenAIRequest = async (req, res) => {
             delta.thoughtSignature = reasoningSignature;
           }
           writeStreamData(res, createStreamChunk(id, created, model, delta));
-          setRequestMeta(token?.sessionId, usage);
+setRequestMeta(requestBody?.request?.sessionId, usage);
           writeStreamData(res, { ...createStreamChunk(id, created, model, {}, 'stop'), usage });
         } else {
           let hasToolCall = false;
@@ -137,7 +137,7 @@ export const handleOpenAIRequest = async (req, res) => {
               return generateAssistantResponse(actualRequestBody, token, (data) => {
                 if (data.type === 'usage') {
                   usageData = data.usage;
-                  setRequestMeta(token?.sessionId, usageData);
+                  setRequestMeta(requestBody?.request?.sessionId, usageData);
                 } else if (data.type === 'reasoning') {
                   const delta = { reasoning_content: data.reasoning_content };
                   if (data.thoughtSignature && config.passSignatureToClient) {
@@ -202,7 +202,7 @@ export const handleOpenAIRequest = async (req, res) => {
               return generateAssistantResponse(actualRequestBody, token, (data) => {
                 if (data.type === 'usage') {
                   usageData = data.usage;
-                  setRequestMeta(token?.sessionId, usageData);
+                  setRequestMeta(requestBody?.request?.sessionId, usageData);
                 } else if (data.type === 'reasoning') {
                   reasoningContent += data.reasoning_content || '';
                 if (data.thoughtSignature) {
@@ -233,7 +233,7 @@ export const handleOpenAIRequest = async (req, res) => {
           }
         }
 
-        setRequestMeta(token?.sessionId, usageData);
+        setRequestMeta(requestBody?.request?.sessionId, usageData);
         res.json(createOpenAIChatCompletionResponse({
           id,
           created,
@@ -283,7 +283,7 @@ export const handleOpenAIRequest = async (req, res) => {
         }
       }
 
-      setRequestMeta(token?.sessionId, usage);
+      setRequestMeta(requestBody?.request?.sessionId, usage);
       res.json(createOpenAIChatCompletionResponse({
         id,
         created,

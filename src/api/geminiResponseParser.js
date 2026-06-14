@@ -1,6 +1,5 @@
 export function parseGeminiCandidateParts({
   parts,
-  sessionId,
   model,
   convertToToolCall,
   saveBase64Image
@@ -41,7 +40,7 @@ export function parseGeminiCandidateParts({
     }
 
     if (part?.functionCall) {
-      const toolCall = convertToToolCall(part.functionCall, sessionId ?? null, model);
+      const toolCall = convertToToolCall(part.functionCall, model);
       const sig = part.thoughtSignature || lastSeenSignature || null;
       if (sig) toolCall.thoughtSignature = sig;
       toolCalls.push(toolCall);

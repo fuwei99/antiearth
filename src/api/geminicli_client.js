@@ -206,7 +206,6 @@ export async function generateNoStreamResponse(requestBody, token, model) {
   const parts = (data.candidates?.[0]?.content?.parts) || [];
   const parsed = parseGeminiCandidateParts({
     parts,
-    sessionId: null,
     model,
     convertToToolCall,
     saveBase64Image

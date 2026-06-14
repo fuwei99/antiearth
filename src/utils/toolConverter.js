@@ -7,11 +7,10 @@ import { setToolNameMapping } from './toolNameCache.js';
  * @param {string} name - 工具名称
  * @param {string} description - 工具描述
  * @param {Object} parameters - 工具参数 schema
- * @param {string} sessionId - 会话 ID
  * @param {string} actualModelName - 实际模型名称
  * @returns {Object} functionDeclaration 对象
  */
-function convertSingleTool(name, description, parameters, sessionId, actualModelName) {
+function convertSingleTool(name, description, parameters, actualModelName) {
   const originalName = name;
   const safeName = sanitizeToolName(originalName);
   
@@ -41,7 +40,7 @@ function convertSingleTool(name, description, parameters, sessionId, actualModel
  * @param {string} actualModelName - 实际模型名称
  * @returns {Array} Antigravity 格式的工具列表（所有工具在一个 functionDeclarations 数组中）
  */
-export function convertOpenAIToolsToAntigravity(openaiTools, sessionId, actualModelName) {
+export function convertOpenAIToolsToAntigravity(openaiTools, actualModelName) {
   if (!openaiTools || openaiTools.length === 0) return [];
   
   const declarations = openaiTools.map((tool) => {
@@ -50,7 +49,6 @@ export function convertOpenAIToolsToAntigravity(openaiTools, sessionId, actualMo
       func.name,
       func.description,
       func.parameters,
-      sessionId,
       actualModelName
     );
   });
@@ -68,7 +66,7 @@ export function convertOpenAIToolsToAntigravity(openaiTools, sessionId, actualMo
  * @param {string} actualModelName - 实际模型名称
  * @returns {Array} Antigravity 格式的工具列表（所有工具在一个 functionDeclarations 数组中）
  */
-export function convertClaudeToolsToAntigravity(claudeTools, sessionId, actualModelName) {
+export function convertClaudeToolsToAntigravity(claudeTools, actualModelName) {
   if (!claudeTools || claudeTools.length === 0) return [];
   
   const declarations = claudeTools.map((tool) => {
@@ -76,7 +74,6 @@ export function convertClaudeToolsToAntigravity(claudeTools, sessionId, actualMo
       tool.name,
       tool.description,
       tool.input_schema,
-      sessionId,
       actualModelName
     );
   });
@@ -96,7 +93,7 @@ export function convertClaudeToolsToAntigravity(claudeTools, sessionId, actualMo
  * @param {string} actualModelName - 实际模型名称
  * @returns {Array} Antigravity 格式的工具列表（所有工具在一个 functionDeclarations 数组中）
  */
-export function convertGeminiToolsToAntigravity(geminiTools, sessionId, actualModelName) {
+export function convertGeminiToolsToAntigravity(geminiTools, actualModelName) {
   if (!geminiTools || geminiTools.length === 0) return [];
   
   const allDeclarations = [];
@@ -107,7 +104,7 @@ export function convertGeminiToolsToAntigravity(geminiTools, sessionId, actualMo
       // 收集所有声明
       for (const fd of declarations) {
         allDeclarations.push(
-          convertSingleTool(fd.name, fd.description, fd.parameters, sessionId, actualModelName)
+          convertSingleTool(fd.name, fd.description, fd.parameters, actualModelName)
         );
       }
     }
@@ -118,7 +115,6 @@ export function convertGeminiToolsToAntigravity(geminiTools, sessionId, actualMo
           tool.name,
           tool.description,
           tool.parameters || tool.input_schema,
-          sessionId,
           actualModelName
         )
       );

@@ -188,7 +188,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
           }));
 
           clearInterval(heartbeatTimer);
-          setRequestMeta(token?.sessionId, usage);
+          setRequestMeta(requestBody?.request?.sessionId, usage);
           res.end();
           return;
         }
@@ -201,9 +201,9 @@ export const handleClaudeRequest = async (req, res, isStream) => {
             return generateAssistantResponse(actualRequestBody, token, (data) => {
               if (data.type === 'usage') {
                 usageData = data.usage;
-                setRequestMeta(token?.sessionId, usageData);
-              } else if (data.type === 'reasoning') {
-                // 思维链内容 - 使用 thinking 类型
+                  setRequestMeta(requestBody?.request?.sessionId, usageData);
+               } else if (data.type === 'reasoning') {
+                 // 思维链内容 - 使用 thinking 类型
                 if (!reasoningSent) {
                   // 如果之前已经发送了 text block，先关闭它
                   if (currentBlockType === 'text') {
@@ -369,7 +369,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
             return generateAssistantResponse(actualRequestBody, token, (data) => {
               if (data.type === 'usage') {
                 usageData = data.usage;
-                setRequestMeta(token?.sessionId, usageData);
+                setRequestMeta(requestBody?.request?.sessionId, usageData);
               } else if (data.type === 'reasoning') {
                 reasoningContent += data.reasoning_content || '';
                 if (data.thoughtSignature) {
@@ -399,7 +399,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
           { passSignatureToClient: config.passSignatureToClient }
         );
 
-        setRequestMeta(token?.sessionId, usageData);
+        setRequestMeta(requestBody?.request?.sessionId, usageData);
         res.json(response);
       } catch (error) {
         logger.error('Claude 假非流请求失败:', error.message);
@@ -424,7 +424,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
       );
 
       const stopReason = toolCalls.length > 0 ? 'tool_use' : 'end_turn';
-      setRequestMeta(token?.sessionId, usage);
+      setRequestMeta(requestBody?.request?.sessionId, usage);
       const response = createClaudeResponse(
         msgId,
         model,

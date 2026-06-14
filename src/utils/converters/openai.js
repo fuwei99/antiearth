@@ -59,14 +59,14 @@ function extractOpenAIContentToParts(content, messageContext = {}) {
   return parts;
 }
 
-function handleAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, sessionId, hasTools) {
+function handleAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, hasTools) {
   const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
   const hasContent = message.content && message.content.trim() !== '';
-  const { reasoningSignature, reasoningContent, toolSignature, toolContent } = getSignatureContext(sessionId, actualModelName, hasTools);
+  const { reasoningSignature, reasoningContent, toolSignature, toolContent } = getSignatureContext(actualModelName, hasTools);
   
   const toolCalls = hasToolCalls
     ? message.tool_calls.map(toolCall => {
-      const safeName = processToolName(toolCall.function.name, sessionId, actualModelName);
+      const safeName = processToolName(toolCall.function.name, actualModelName);
       const signature = toolCall.thoughtSignature || toolCall.thought_signature || toolSignature || message.thoughtSignature || message.thought_signature || reasoningSignature;
       const toolCallPart = createFunctionCallPart(toolCall.id, safeName, toolCall.function.arguments, signature);
       // Gemini gRPC 协议不支持 cache_control/promptCacheOptions，显式剔除防御
@@ -117,14 +117,14 @@ function handleToolCall(message, antigravityMessages) {
   pushFunctionResponse(message.tool_call_id, functionName, message.content, antigravityMessages, message);
 }
 
-function openaiMessageToAntigravity(openaiMessages, enableThinking, actualModelName, sessionId, hasTools) {
+function openaiMessageToAntigravity(openaiMessages, enableThinking, actualModelName, hasTools) {
   const antigravityMessages = [];
   for (const message of openaiMessages) {
     if (message.role === 'user' || message.role === 'system') {
       const extracted = extractOpenAIContentToParts(message.content, message);
       pushUserMessage(extracted, antigravityMessages);
     } else if (message.role === 'assistant') {
-      handleAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, sessionId, hasTools);
+      handleAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, hasTools);
     } else if (message.role === 'tool') {
       handleToolCall(message, antigravityMessages);
     }
@@ -151,14 +151,13 @@ export function generateRequestBody(openaiMessages, modelName, parameters, opena
     }
   }
 
-  const tools = convertOpenAIToolsToAntigravity(openaiTools, token.sessionId, actualModelName);
+  const tools = convertOpenAIToolsToAntigravity(openaiTools, actualModelName);
   const hasTools = tools && tools.length > 0;
   //console.log(JSON.stringify(tools, null, 2))
   return buildRequestBody({
-    contents: openaiMessageToAntigravity(filteredMessages, enableThinking, actualModelName, token.sessionId, hasTools),
+    contents: openaiMessageToAntigravity(filteredMessages, enableThinking, actualModelName, hasTools),
     tools: tools,
     generationConfig: generateGenerationConfig(parameters, enableThinking, actualModelName),
-    // sessionId 由 buildRequestBody 基于 contents 内容自动生成稳定值（提升 Gemini 隐式缓存命中率）
     systemInstruction: mergedSystemInstruction
   }, token, actualModelName);
 }

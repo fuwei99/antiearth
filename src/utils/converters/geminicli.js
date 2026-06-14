@@ -643,7 +643,7 @@ export function convertGeminiToGeminiCli(geminiRequest, modelName) {
   const hasTools = request.tools && request.tools.length > 0;
   if (hasTools) {
     // 转换工具格式（如果需要）
-    request.tools = convertGeminiToolsToAntigravity(request.tools, null, actualModelName);
+    request.tools = convertGeminiToolsToAntigravity(request.tools, actualModelName);
   }
   
   // 获取签名上下文并处理 model 消息中的 thought（GeminiCLI 必须确保有签名）

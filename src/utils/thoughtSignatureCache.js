@@ -253,7 +253,6 @@ function processThinkingContent(content) {
 
 /**
  * 设置签名和内容（通用接口）
- * @param {string} sessionId - 会话 ID（保留兼容，不参与缓存 key）
  * @param {string} model - 模型名称
  * @param {string} signature - 签名
  * @param {string} content - 思考内容（可选）
@@ -261,7 +260,7 @@ function processThinkingContent(content) {
  * @param {boolean} options.hasTools - 是否使用了工具
  * @param {boolean} options.isImageModel - 是否是图像模型
  */
-export function setSignature(sessionId, model, signature, content = ' ', options = {}) {
+export function setSignature(model, signature, content = ' ', options = {}) {
   if (!signature || !model) return;
   
   // 判断是否应该缓存
@@ -278,13 +277,12 @@ export function setSignature(sessionId, model, signature, content = ' ', options
 
 /**
  * 获取签名和内容
- * @param {string} sessionId - 会话 ID
  * @param {string} model - 模型名称
  * @param {Object} options - 选项
  * @param {boolean} options.hasTools - 是否使用了工具
  * @returns {{ signature: string, content: string } | null}
  */
-export function getSignature(sessionId, model, options = {}) {
+export function getSignature(model, options = {}) {
   if (!model) return null;
   
   const entry = getLatestEntry(makeModelKey(model));
@@ -301,49 +299,44 @@ export function getSignature(sessionId, model, options = {}) {
 
 /**
  * 设置思维链签名和内容（兼容旧 API）
- * @param {string} sessionId - 会话 ID
  * @param {string} model - 模型名称
  * @param {string} signature - 签名
  * @param {string} content - 思考内容
  * @param {Object} options - 选项
  */
-export function setReasoningSignature(sessionId, model, signature, content = ' ', options = {}) {
-  setSignature(sessionId, model, signature, content, options);
+export function setReasoningSignature(model, signature, content = ' ', options = {}) {
+  setSignature(model, signature, content, options);
 }
 
 /**
  * 获取思维链签名和内容（兼容旧 API）
- * @param {string} sessionId - 会话 ID
  * @param {string} model - 模型名称
  * @param {Object} options - 选项
  * @returns {{ signature: string, content: string } | null}
  */
-export function getReasoningSignature(sessionId, model, options = {}) {
-  return getSignature(sessionId, model, options);
+export function getReasoningSignature(model, options = {}) {
+  return getSignature(model, options);
 }
 
 /**
  * 设置工具签名和内容（兼容旧 API，实际上现在统一存储）
- * @param {string} sessionId - 会话 ID
  * @param {string} model - 模型名称
  * @param {string} signature - 签名
  * @param {string} content - 思考内容
  * @param {Object} options - 选项
  */
-export function setToolSignature(sessionId, model, signature, content = ' ', options = {}) {
-  // 工具签名默认 hasTools = true
-  setSignature(sessionId, model, signature, content, { ...options, hasTools: true });
+export function setToolSignature(model, signature, content = ' ', options = {}) {
+  setSignature(model, signature, content, { ...options, hasTools: true });
 }
 
 /**
  * 获取工具签名和内容（兼容旧 API）
- * @param {string} sessionId - 会话 ID
  * @param {string} model - 模型名称
  * @param {Object} options - 选项
  * @returns {{ signature: string, content: string } | null}
  */
-export function getToolSignature(sessionId, model, options = {}) {
-  return getSignature(sessionId, model, options);
+export function getToolSignature(model, options = {}) {
+  return getSignature(model, options);
 }
 
 /**

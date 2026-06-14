@@ -73,7 +73,7 @@ function registerStreamMemoryCleanup() {
 
 // 转换 functionCall 为 OpenAI 格式（使用对象池）
 // 会尝试将安全工具名还原为原始工具名
-function convertToToolCall(functionCall, sessionId, model) {
+function convertToToolCall(functionCall, model) {
   const toolCall = getToolCallObject();
   toolCall.id = functionCall.id || generateToolCallId();
   let name = functionCall.name;
@@ -126,7 +126,7 @@ function parseAndEmitStreamChunk(line, state, callback) {
         } else if (part.text !== undefined) {
           callback({ type: 'text', content: part.text });
         } else if (part.functionCall) {
-          const toolCall = convertToToolCall(part.functionCall, state.sessionId, state.model);
+          const toolCall = convertToToolCall(part.functionCall, state.model);
           const sig = part.thoughtSignature || state.reasoningSignature || null;
           if (sig) {
             toolCall.thoughtSignature = sig;
@@ -143,12 +143,11 @@ function parseAndEmitStreamChunk(line, state, callback) {
       const hasTools = state.hasToolCalls || state.toolCalls.length > 0;
       const isImage = isImageModel(state.model);
       
-      // 注意：GeminiCLI 不使用 sessionId，但签名缓存仍然应该工作
-      // sessionId 参数在 thoughtSignatureCache.js 中已不再用于缓存 key
+      // 注意：签名缓存按 model 维度索引，无需 sessionId
       if (state.model && state.reasoningSignature) {
         if (shouldCacheSignature({ hasTools, isImageModel: isImage })) {
           const content = state.reasoningContent || ' ';
-          setSignature(state.sessionId, state.model, state.reasoningSignature, content, { hasTools, isImageModel: isImage });
+          setSignature(state.model, state.reasoningSignature, content, { hasTools, isImageModel: isImage });
         }
       }
       

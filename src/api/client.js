@@ -310,7 +310,6 @@ export async function generateAssistantResponse(requestBody, token, callback) {
       const state = {
         toolCalls: [],
         reasoningSignature: null,
-        sessionId: requestBody.request?.sessionId,
         model: requestBody.model
       };
       const processor = createStreamLineProcessor({
@@ -483,7 +482,6 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
   const parts = data.response?.candidates?.[0]?.content?.parts || [];
   const parsed = parseGeminiCandidateParts({
     parts,
-    sessionId: requestBody.request?.sessionId,
     model: requestBody.model,
     convertToToolCall,
     saveBase64Image
@@ -506,13 +504,12 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
   const usageData = toOpenAIUsage(usageMetadata);
 
   // 将新的签名和思考内容写入全局缓存（按 model），供后续请求兜底使用
-  const sessionId = requestBody.request?.sessionId;
   const model = requestBody.model;
   const hasTools = parsed.toolCalls.length > 0;
   const isImage = isImageModel(model);
 
   // 判断是否应该缓存签名
-  if (sessionId && model && shouldCacheSignature({ hasTools, isImageModel: isImage })) {
+  if (model && shouldCacheSignature({ hasTools, isImageModel: isImage })) {
     // 获取最终使用的签名（优先使用工具签名，回退到思维签名）
     let finalSignature = parsed.reasoningSignature;
 
@@ -529,7 +526,7 @@ export async function generateAssistantResponseNoStream(requestBody, token) {
 
     if (finalSignature) {
       const cachedContent = parsed.reasoningContent || ' ';
-      setSignature(sessionId, model, finalSignature, cachedContent, { hasTools, isImageModel: isImage });
+      setSignature(model, finalSignature, cachedContent, { hasTools, isImageModel: isImage });
     }
   }
 
@@ -702,10 +699,10 @@ export async function sendCheckPoint(token) {
   const requestBody = generateCheckpointBody(token);
   const headers = buildHeaders(token);
   headers["Content-Length"] = String(Buffer.byteLength(JSON.stringify(requestBody), 'utf-8'));
-  if (checkPointList.has(token.sessionId)) {
+  if (checkPointList.has(token.refresh_token)) {
     return;
   } else {
-    checkPointList.add(token.sessionId);
+    checkPointList.add(token.refresh_token);
   }
   try {
     await requesterManager.fetch(config.api.url, {

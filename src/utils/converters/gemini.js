@@ -165,11 +165,11 @@ export function generateGeminiRequestBody(geminiBody, modelName, token) {
 
     // 转换工具定义（需要在获取签名前完成，以便判断 hasTools）
     if (request.tools && Array.isArray(request.tools)) {
-      request.tools = convertGeminiToolsToAntigravity(request.tools, token.sessionId, actualModelName);
+      request.tools = convertGeminiToolsToAntigravity(request.tools, actualModelName);
     }
 
     const hasTools = request.tools && request.tools.length > 0;
-    const { reasoningSignature, reasoningContent, toolSignature, toolContent } = getSignatureContext(token.sessionId, actualModelName, hasTools);
+    const { reasoningSignature, reasoningContent, toolSignature, toolContent } = getSignatureContext(actualModelName, hasTools);
 
     request.contents.forEach(content => {
       if (content.role === 'model' && content.parts && Array.isArray(content.parts)) {

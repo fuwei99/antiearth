@@ -1,5 +1,5 @@
 import { log } from '../utils/logger.js';
-import { generateSessionId, generateInstanceId } from '../utils/idGenerator.js';
+import { generateInstanceId } from '../utils/idGenerator.js';
 import config, { getConfigJson } from '../config/config.js';
 import { DEFAULT_REQUEST_COUNT_PER_TOKEN } from '../constants/index.js';
 import TokenStore from './token_store.js';
@@ -41,7 +41,6 @@ class TokenManager {
 
   /**
    * 规范化 token 对象，确保所有必需字段存在
-   * - sessionId: 每次启动必须新生成（代表 IDE 会话，上游会校验）
    * - instanceId/deviceId: 有值就保留，缺失或空串才生成
    * - sub: 有值就保留（后续 fetchProjectId 时上游返回新值会覆盖）
    * - 布尔字段用 ?? 保留 false 的语义
@@ -53,7 +52,6 @@ class TokenManager {
     const sub = token.sub || 'g1-pro-tier';
     return {
       ...token,
-      sessionId: generateSessionId(),
       instanceId: token.instanceId || generateInstanceId(),
       deviceId: token.deviceId || randomUUID(),
       sub,
@@ -476,7 +474,6 @@ class TokenManager {
       enable: true,
       hasQuota: true,
       useCredits: tokenData.useCredits ?? (sub === 'free-tier'),
-      sessionId: generateSessionId(),
       instanceId: generateInstanceId(),
       deviceId: randomUUID()
     };

@@ -58,9 +58,9 @@ function extractClaudeContentToParts(content, messageContext = {}) {
   return parts;
 }
 
-function handleClaudeAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, sessionId, hasTools) {
+function handleClaudeAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, hasTools) {
   const content = message.content;
-  const { reasoningSignature, reasoningContent, toolSignature, toolContent } = getSignatureContext(sessionId, actualModelName, hasTools);
+  const { reasoningSignature, reasoningContent, toolSignature, toolContent } = getSignatureContext(actualModelName, hasTools);
 
   let textContent = '';
   let thinkingContent = '';
@@ -78,7 +78,7 @@ function handleClaudeAssistantMessage(message, antigravityMessages, enableThinki
         if (item.thinking) thinkingContent += item.thinking;
         if (!messageSignature) messageSignature = item.signature || item.thought_signature || item.thoughtSignature;
       } else if (item.type === 'tool_use') {
-        const safeName = processToolName(item.name, sessionId, actualModelName);
+        const safeName = processToolName(item.name, actualModelName);
         const signature = item.signature || item.thought_signature || item.thoughtSignature || toolSignature || reasoningSignature;
         const toolCallPart = createFunctionCallPart(item.id, safeName, JSON.stringify(item.input || {}), signature);
         // Gemini gRPC 协议不支持 cache_control/promptCacheOptions，显式剔除防御
@@ -140,7 +140,7 @@ function handleClaudeToolResult(message, antigravityMessages) {
   }
 }
 
-function claudeMessageToAntigravity(claudeMessages, enableThinking, actualModelName, sessionId, hasTools) {
+function claudeMessageToAntigravity(claudeMessages, enableThinking, actualModelName, hasTools) {
   const antigravityMessages = [];
   for (const message of claudeMessages) {
     if (message.role === 'user') {
@@ -152,7 +152,7 @@ function claudeMessageToAntigravity(claudeMessages, enableThinking, actualModelN
         pushUserMessage(extracted, antigravityMessages);
       }
     } else if (message.role === 'assistant') {
-      handleClaudeAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, sessionId, hasTools);
+      handleClaudeAssistantMessage(message, antigravityMessages, enableThinking, actualModelName, hasTools);
     }
   }
   return antigravityMessages;
@@ -164,13 +164,12 @@ export function generateClaudeRequestBody(claudeMessages, modelName, parameters,
   // 直接传递用户的系统提示词，让 buildSystemInstruction 处理所有合并逻辑
   // 包括反重力官方提示词、萌萌提示词和用户提示词的位置配置
 
-  const tools = convertClaudeToolsToAntigravity(claudeTools, token.sessionId, actualModelName);
+  const tools = convertClaudeToolsToAntigravity(claudeTools, actualModelName);
   const hasTools = tools && tools.length > 0;
   return buildRequestBody({
-    contents: claudeMessageToAntigravity(claudeMessages, enableThinking, actualModelName, token.sessionId, hasTools),
+    contents: claudeMessageToAntigravity(claudeMessages, enableThinking, actualModelName, hasTools),
     tools: tools,
     generationConfig: generateGenerationConfig(parameters, enableThinking, actualModelName),
-    // sessionId 由 buildRequestBody 基于 contents 内容自动生成稳定值（提升 Gemini 隐式缓存命中率）
     systemInstruction: systemPrompt
   }, token, actualModelName);
 }
