@@ -158,20 +158,11 @@ class FingerprintRequester {
     const proxyUrl = proxy || this.defaults.proxy;
     if (proxyUrl) {
       const proxyType = proxyUrl.startsWith('socks') ? 'socks5' : 'http';
-      const proxyConfig = {
+      requestPayload.proxy = {
         enabled: true,
         type: proxyType,
         url: proxyUrl,
       };
-      try {
-        const parsed = new URL(proxyUrl);
-        if (parsed.username && parsed.password) {
-          proxyConfig.username = decodeURIComponent(parsed.username);
-          proxyConfig.password = decodeURIComponent(parsed.password);
-          proxyConfig.url = `${parsed.protocol}//${parsed.hostname}${parsed.port ? ':' + parsed.port : ''}`;
-        }
-      } catch {}
-      requestPayload.proxy = proxyConfig;
     }
 
     return new Promise((resolve, reject) => {
