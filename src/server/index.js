@@ -90,7 +90,7 @@ app.use((req, res, next) => {
       const duration = Date.now() - start;
       const { sessionId, usageInfo } = res.locals || {};
       const extra = [];
-      if (sessionId) extra.push(`sid=${sessionId.slice(0, 8)}`);
+      if (sessionId) extra.push(`sid=${String(sessionId).slice(-8)}`);
       if (usageInfo) extra.push(usageInfo);
       logger.request(req.method, fullPath, res.statusCode, duration, extra.join(' '));
     });
