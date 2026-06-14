@@ -219,9 +219,11 @@ export function pushModelMessage({ parts, toolCalls, hasContent }, antigravityMe
 export function buildRequestBody({ contents, tools, generationConfig, sessionId, systemInstruction, useCredits }, token, actualModelName) {
   const hasTools = tools && tools.length > 0;
 
-  // 基于 contents 内容生成稳定的 sessionId（照抄 CPA 的 generateStableSessionID）
+  // 基于 contents + systemInstruction 内容生成稳定的 sessionId
   // 同一对话的延续请求会产生相同的 sessionId，提升 Gemini 隐式缓存命中率
-  const stableSessionId = sessionId || generateStableSessionId(contents);
+  // 系统提示词也参与哈希，避免不同提示词的对话误共享缓存
+  const systemInstructionObj = buildSystemInstruction(systemInstruction);
+  const stableSessionId = sessionId || generateStableSessionId(contents, systemInstructionObj);
 
   const requestBody = {
     project: token.projectId,
@@ -242,8 +244,7 @@ export function buildRequestBody({ contents, tools, generationConfig, sessionId,
     requestBody.request.toolConfig = { functionCallingConfig: { mode: 'VALIDATED' } };
   }
 
-  // 构建系统提示词
-  const systemInstructionObj = buildSystemInstruction(systemInstruction);
+  // 构建系统提示词（提前构建，供 sessionId 和 requestBody 共用）
   if (systemInstructionObj) {
     requestBody.request.systemInstruction = systemInstructionObj;
   }

@@ -20,34 +20,54 @@ function generateSessionId() {
  * 基于对话内容生成稳定的 Session ID（照抄 CPA 的 generateStableSessionID）
  * 
  * 遍历 contents 数组，找第一个 role=user 的消息，取 parts[0].text，
- * 对其做 SHA256 哈希，将前 8 字节转为 int64 作为 sessionId。
+ * 同时拼接 systemInstruction 的文本内容，一起做 SHA256 哈希。
  * 
- * 这样同一对话的延续请求会产生相同的 sessionId，提升 Gemini 隐式缓存命中率。
- * 找不到用户文本时回退到随机 sessionId。
+ * 这样即使同一用户消息，不同系统提示词也会产生不同 sessionId，
+ * 避免不同对话误共享缓存。
  * 
  * @param {Array} contents - Gemini 格式的 contents 数组 [{role, parts}]
+ * @param {Object|string} [systemInstruction] - 系统提示词
  * @returns {string} 稳定的 sessionId（负数字符串格式）
  */
-function generateStableSessionId(contents) {
+function generateStableSessionId(contents, systemInstruction) {
+  let hashInput = '';
+
+  // 拼接系统提示词文本
+  if (systemInstruction) {
+    if (typeof systemInstruction === 'string' && systemInstruction.trim()) {
+      hashInput += systemInstruction.trim();
+    } else if (systemInstruction.parts && Array.isArray(systemInstruction.parts)) {
+      for (const part of systemInstruction.parts) {
+        if (part.text && typeof part.text === 'string' && part.text.trim()) {
+          hashInput += part.text.trim();
+        }
+      }
+    }
+  }
+
+  // 拼接第一个用户消息文本
   if (Array.isArray(contents)) {
     for (const content of contents) {
       if (content.role === 'user' && Array.isArray(content.parts)) {
         for (const part of content.parts) {
           if (part.text && typeof part.text === 'string' && part.text.trim()) {
-            const hash = createHash('sha256').update(part.text).digest();
-            // 取前 8 字节，转成 BigInt，确保为正数（清最高符号位）
-            const high = hash.readUInt32BE(0);
-            const low = hash.readUInt32BE(4);
-            const value = (BigInt(high) << 32n) | BigInt(low);
-            // Gemini sessionId 格式是负数，CPA 用 "-" + strconv.FormatInt(n, 10)
-            // 这里直接用 "-" + 正整数字符串
-            return '-' + (value & 0x7FFFFFFFFFFFFFFFn).toString();
+            hashInput += part.text.trim();
+            break;
           }
         }
+        if (hashInput.length > 0) break;
       }
     }
   }
-  // 回退：找不到用户文本，用随机 sessionId
+
+  if (hashInput.length > 0) {
+    const hash = createHash('sha256').update(hashInput).digest();
+    const high = hash.readUInt32BE(0);
+    const low = hash.readUInt32BE(4);
+    const value = (BigInt(high) << 32n) | BigInt(low);
+    return '-' + (value & 0x7FFFFFFFFFFFFFFFn).toString();
+  }
+
   return generateSessionId();
 }
 

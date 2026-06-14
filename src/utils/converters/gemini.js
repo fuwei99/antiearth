@@ -183,9 +183,6 @@ export function generateGeminiRequestBody(geminiBody, modelName, token) {
 
   // 转换为 generationConfig 格式
   request.generationConfig = toGenerationConfig(normalizedParams, enableThinking, actualModelName);
-  // 基于 contents 内容生成稳定的 sessionId（照抄 CPA 的 generateStableSessionID）
-  // 同一对话的延续请求会产生相同的 sessionId，提升 Gemini 隐式缓存命中率
-  request.sessionId = generateStableSessionId(request.contents);
   delete request.safetySettings;
 
   // 添加工具配置
@@ -193,7 +190,7 @@ export function generateGeminiRequestBody(geminiBody, modelName, token) {
     request.toolConfig = { functionCallingConfig: { mode: 'VALIDATED' } };
   }
 
-  // 使用新的系统提示词构建函数，支持多 part 结构和位置配置
+  // 构建系统提示词（提前构建，供 sessionId 和请求体共用）
   const existingSystemInstruction = request.systemInstruction;
   const systemInstructionObj = buildSystemInstruction(existingSystemInstruction);
   if (systemInstructionObj) {
@@ -201,6 +198,10 @@ export function generateGeminiRequestBody(geminiBody, modelName, token) {
   } else {
     delete request.systemInstruction;
   }
+
+  // 基于 contents + systemInstruction 内容生成稳定的 sessionId
+  // 系统提示词也参与哈希，避免不同提示词的对话误共享缓存
+  request.sessionId = generateStableSessionId(request.contents, systemInstructionObj);
 
   // 清洗 contents 和 systemInstruction 中 Gemini gRPC 协议不支持的字段
   // Gemini 不支持 cache_control / cacheControl / promptCacheOptions，隐式缓存由后端自动处理
