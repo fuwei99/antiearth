@@ -2,6 +2,9 @@ import http from 'http';
 import { URL } from 'url';
 import { log } from './logger.js';
 
+let _proxyServer = null;
+let _localUrl = null;
+
 export function startLocalProxy(upstreamProxyUrl, localPort = 0) {
   const parsed = new URL(upstreamProxyUrl);
   const upstreamHost = parsed.hostname;
@@ -48,7 +51,7 @@ export function startLocalProxy(upstreamProxyUrl, localPort = 0) {
       proxySocket.pipe(clientSocket);
       clientSocket.pipe(proxySocket);
     });
-    proxyReq.on('error', (e) => {
+    proxyReq.on('error', () => {
       clientSocket.end();
     });
     if (head && head.length) proxyReq.write(head);
@@ -59,8 +62,15 @@ export function startLocalProxy(upstreamProxyUrl, localPort = 0) {
     server.listen(localPort, '127.0.0.1', () => {
       const addr = server.address();
       const localUrl = `http://127.0.0.1:${addr.port}`;
-      log.info(`[LocalProxy] 本地代理已启动: ${localUrl} -> ${upstreamProxyUrl.replace(/\/\/[^:]+:[^@]+@/, '//@')}`);
+      const maskedUpstream = upstreamProxyUrl.replace(/\/\/[^:]+:[^@]+@/, '//@');
+      log.info(`[LocalProxy] 本地代理已启动: ${localUrl} -> ${maskedUpstream}`);
+      _proxyServer = server;
+      _localUrl = localUrl;
       resolve({ server, localUrl });
     });
   });
+}
+
+export function getLocalProxy() {
+  return { server: _proxyServer, localUrl: _localUrl };
 }

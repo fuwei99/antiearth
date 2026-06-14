@@ -17,7 +17,7 @@ import { errorHandler } from '../utils/errors.js';
 import { getChunkPoolSize, clearChunkPool } from './stream.js';
 import ipBlockManager from '../utils/ipBlockManager.js';
 import { initStore, getStore } from '../store/index.js';
-import { startLocalProxy } from '../utils/localProxy.js';
+import { startLocalProxy, getLocalProxy } from '../utils/localProxy.js';
 import usageTracker from '../auth/usage_tracker.js';
 import quotaManager from '../auth/quota_manager.js';
 import tokenCooldownManager from '../auth/token_cooldown_manager.js';
@@ -199,11 +199,26 @@ app.use((req, res, next) => {
 
 // ==================== 异步初始化 + 服务器启动 ====================
 async function startServer() {
-  // 如果代理带认证，启动本地二级代理（TLS requester 不支持代理认证）
-  if (config.proxy && /\/\/[^:]+:[^@]+@/.test(config.proxy)) {
-    const { server: proxyServer, localUrl } = await startLocalProxy(config.proxy);
+  // 如果配置了 AUTH_PROXY，启动本地二级代理，所有请求走本地代理
+  const authProxy = process.env.AUTH_PROXY || process.env.PROXY;
+  if (authProxy) {
+    const { server: proxyServer, localUrl } = await startLocalProxy(authProxy);
     config.proxy = localUrl;
     process.env.PROXY = localUrl;
+    delete process.env.AUTH_PROXY;
+    // 防止 dotenv 热重载时把 .env 里的原始 PROXY 覆盖回来
+    // 将 .env 中的 PROXY 行替换为本地代理地址
+    try {
+      const fs = await import('fs/promises');
+      const envPath = (await import('../config/config.js')).envPath;
+      if (envPath) {
+        const envContent = await fs.readFile(envPath, 'utf8');
+        const updated = envContent.replace(/^PROXY=.*$/m, `PROXY=${localUrl}`);
+        if (updated !== envContent) {
+          await fs.writeFile(envPath, updated, 'utf8');
+        }
+      }
+    } catch {}
     process.on('SIGINT', () => proxyServer.close());
     process.on('SIGTERM', () => proxyServer.close());
   }
@@ -269,9 +284,15 @@ async function startServer() {
     logWsServer.close();
     logger.info('已关闭 WebSocket 日志服务');
 
-    const store = getStore();
-    await store.close();
-    logger.info('已关闭数据存储');
+  const store = getStore();
+  await store.close();
+  logger.info('已关闭数据存储');
+
+  const localProxy = getLocalProxy();
+  if (localProxy.server) {
+    localProxy.server.close();
+    logger.info('已关闭本地代理');
+  }
 
     server.close(() => {
       logger.info('服务器已关闭');

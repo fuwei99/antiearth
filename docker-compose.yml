@@ -10,7 +10,7 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
       - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key-change-this-in-production}
-      - PROXY=${PROXY:-}
+      - AUTH_PROXY=${AUTH_PROXY:-}
       - SYSTEM_INSTRUCTION=${SYSTEM_INSTRUCTION:-}
       - IMAGE_BASE_URL=${IMAGE_BASE_URL:-}
     volumes:
