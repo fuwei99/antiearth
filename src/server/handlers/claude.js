@@ -11,6 +11,7 @@ import logger from '../../utils/logger.js';
 import config from '../../config/config.js';
 import tokenManager from '../../auth/token_manager.js';
 import quotaManager from '../../auth/quota_manager.js';
+import { resolveModelWithThinkingLevel } from '../../utils/modelsConfig.js';
 import { createClaudeResponse } from '../formatters/claude.js';
 import { validateIncomingChatRequest } from '../validators/chat.js';
 import { getSafeRetries } from './common/retry.js';
@@ -74,10 +75,13 @@ export const handleClaudeRequest = async (req, res, isStream) => {
       return res.status(400).json(buildClaudeErrorPayload({ message: 'model is required' }, 400));
     }
 
+    // 应用智能路由，支持根据 thinking_level 动态转换模型名
+    const resolvedModel = resolveModelWithThinkingLevel(model, body, 'claude');
+
     // 使用统一参数规范化模块处理 Claude 格式参数
     const parameters = normalizeClaudeParameters(rawParams);
 
-    const isImageModel = model.includes('-image');
+    const isImageModel = resolvedModel.includes('-image');
     let token = null;
     let tokenId = null;
     let requestBody = null;
@@ -87,7 +91,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
 
       token = nextToken;
       tokenId = await tokenManager.getTokenId(token);
-      requestBody = generateClaudeRequestBody(messages, model, parameters, tools, system, token);
+      requestBody = generateClaudeRequestBody(messages, resolvedModel, parameters, tools, system, token);
       setRequestMeta(requestBody?.request?.sessionId);
       if (isImageModel) {
         prepareImageRequest(requestBody);
@@ -95,7 +99,7 @@ export const handleClaudeRequest = async (req, res, isStream) => {
       return true;
     };
 
-    if (!await applyTokenState(await tokenManager.getToken(model))) {
+    if (!await applyTokenState(await tokenManager.getToken(resolvedModel))) {
       throw new Error('没有可用的token，请运行 npm run login 获取token');
     }
 
@@ -108,14 +112,14 @@ export const handleClaudeRequest = async (req, res, isStream) => {
     // 创建 with429Retry 选项
     const createRetryOptions = (prefix) => ({
       loggerPrefix: prefix,
-      onAttempt: () => tokenManager.recordRequest(token, model),
+      onAttempt: () => tokenManager.recordRequest(token, resolvedModel),
       getTokenId: () => tokenId,
-      modelId: model,
+      modelId: resolvedModel,
       refreshQuota,
       tokenManager,
       getToken: () => token,
       onBeforeRetry: async ({ previousTokenId }) => {
-        const nextToken = await tokenManager.getTokenForRetry(model, previousTokenId);
+        const nextToken = await tokenManager.getTokenForRetry(resolvedModel, previousTokenId);
         return applyTokenState(nextToken);
       }
     });

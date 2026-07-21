@@ -204,6 +204,38 @@ router.delete('/tokens/:tokenId', cookieAuthMiddleware, async (req, res) => {
   }
 });
 
+// 批量切换 Token 状态 (启用/禁用)
+router.post('/tokens/batch-toggle', cookieAuthMiddleware, async (req, res) => {
+  const { tokenIds, enable } = req.body;
+  if (!Array.isArray(tokenIds) || typeof enable !== 'boolean') {
+    return res.status(400).json({ success: false, message: 'tokenIds 必须为数组且 enable 必填' });
+  }
+  try {
+    const result = await tokenManager.batchUpdateTokensById(tokenIds, { enable });
+    logger.info(`批量${enable ? '启用' : '禁用'}Token: ${tokenIds.length} 个`);
+    res.json(result);
+  } catch (error) {
+    logger.error('批量更新Token失败:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 批量删除 Token
+router.post('/tokens/batch-delete', cookieAuthMiddleware, async (req, res) => {
+  const { tokenIds } = req.body;
+  if (!Array.isArray(tokenIds) || tokenIds.length === 0) {
+    return res.status(400).json({ success: false, message: 'tokenIds 必须为非空数组' });
+  }
+  try {
+    const result = await tokenManager.batchDeleteTokensById(tokenIds);
+    logger.info(`批量删除Token: ${tokenIds.length} 个`);
+    res.json(result);
+  } catch (error) {
+    logger.error('批量删除Token失败:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 router.post('/tokens/reload', cookieAuthMiddleware, async (req, res) => {
   try {
     await tokenManager.reload();

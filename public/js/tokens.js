@@ -914,10 +914,178 @@ function cleanupRefreshingTokens() {
     }
 }
 
+// 存储已选中的 Token ID 集合
+const selectedTokenIds = new Set();
+
+// 获取当前筛选出的 Token 列表
+function getCurrentlyFilteredTokens() {
+    if (!cachedTokens) return [];
+    if (currentFilter === 'enabled') {
+        return cachedTokens.filter(t => t.enable);
+    } else if (currentFilter === 'disabled') {
+        return cachedTokens.filter(t => !t.enable);
+    }
+    return cachedTokens;
+}
+
+// 切换单项选择
+function onTokenCheckboxChange(event, tokenId) {
+    event.stopPropagation();
+    if (event.target.checked) {
+        selectedTokenIds.add(tokenId);
+    } else {
+        selectedTokenIds.delete(tokenId);
+    }
+    updateBatchBarState();
+    
+    // 更新卡片视觉高亮
+    const cardId = tokenId.substring(0, 8);
+    const card = document.getElementById(`card-${cardId}`);
+    if (card) {
+        card.classList.toggle('selected', event.target.checked);
+    }
+}
+
+// 切换全选/反选
+function toggleSelectAllTokens(checked) {
+    const currentTokens = getCurrentlyFilteredTokens();
+    currentTokens.forEach(t => {
+        if (checked) {
+            selectedTokenIds.add(t.id);
+        } else {
+            selectedTokenIds.delete(t.id);
+        }
+    });
+
+    // 同步所有的 checkbox 勾选状态和 card selected 类
+    document.querySelectorAll('.token-checkbox').forEach(cb => {
+        const tid = cb.getAttribute('data-token-id');
+        cb.checked = selectedTokenIds.has(tid);
+        const cardId = tid.substring(0, 8);
+        const card = document.getElementById(`card-${cardId}`);
+        if (card) {
+            card.classList.toggle('selected', selectedTokenIds.has(tid));
+        }
+    });
+
+    updateBatchBarState();
+}
+
+// 更新批量操作工具栏状态
+function updateBatchBarState() {
+    const countText = document.getElementById('selectedCountText');
+    const enableBtn = document.getElementById('batchEnableBtn');
+    const disableBtn = document.getElementById('batchDisableBtn');
+    const deleteBtn = document.getElementById('batchDeleteBtn');
+    const selectAllCb = document.getElementById('selectAllCheckbox');
+
+    const selectedCount = selectedTokenIds.size;
+    if (countText) {
+        countText.textContent = `已选中 ${selectedCount} 项`;
+    }
+
+    const hasSelection = selectedCount > 0;
+    if (enableBtn) enableBtn.disabled = !hasSelection;
+    if (disableBtn) disableBtn.disabled = !hasSelection;
+    if (deleteBtn) deleteBtn.disabled = !hasSelection;
+
+    // 全选按钮勾选状态
+    const currentTokens = getCurrentlyFilteredTokens();
+    if (selectAllCb && currentTokens.length > 0) {
+        const allSelected = currentTokens.every(t => selectedTokenIds.has(t.id));
+        const someSelected = currentTokens.some(t => selectedTokenIds.has(t.id));
+        selectAllCb.checked = allSelected;
+        selectAllCb.indeterminate = !allSelected && someSelected;
+    } else if (selectAllCb) {
+        selectAllCb.checked = false;
+        selectAllCb.indeterminate = false;
+    }
+}
+
+// 批量切换（启用 / 禁用）
+async function batchToggleSelectedTokens(enable) {
+    const ids = Array.from(selectedTokenIds);
+    if (ids.length === 0) {
+        showToast('请先选择要操作的 Token', 'warning');
+        return;
+    }
+
+    const actionText = enable ? '启用' : '禁用';
+    const confirmed = await showConfirm(`确定要批量${actionText}选中的 ${ids.length} 个 Token 吗？`, `批量${actionText}确认`);
+    if (!confirmed) return;
+
+    showLoading(`正在批量${actionText}...`);
+    try {
+        const response = await authFetch('/admin/tokens/batch-toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tokenIds: ids, enable })
+        });
+
+        const data = await response.json();
+        hideLoading();
+
+        if (data.success) {
+            showToast(data.message || `已批量${actionText}`, 'success');
+            skipAnimation = true;
+            loadTokens();
+        } else {
+            showToast(data.message || '批量操作失败', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('批量操作失败: ' + error.message, 'error');
+    }
+}
+
+// 批量删除
+async function batchDeleteSelectedTokens() {
+    const ids = Array.from(selectedTokenIds);
+    if (ids.length === 0) {
+        showToast('请先选择要删除的 Token', 'warning');
+        return;
+    }
+
+    const confirmed = await showConfirm(`⚠️ 删除后无法恢复！确定要批量删除选中的 ${ids.length} 个 Token 吗？`, '⚠️ 批量删除确认');
+    if (!confirmed) return;
+
+    showLoading('正在批量删除...');
+    try {
+        const response = await authFetch('/admin/tokens/batch-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tokenIds: ids })
+        });
+
+        const data = await response.json();
+        hideLoading();
+
+        if (data.success) {
+            showToast(data.message || '已批量删除', 'success');
+            // 清空已选
+            selectedTokenIds.clear();
+            loadTokens();
+        } else {
+            showToast(data.message || '批量删除失败', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('批量删除失败: ' + error.message, 'error');
+    }
+}
+
 function renderTokens(tokens) {
     // 只在首次加载时更新缓存
     if (tokens !== cachedTokens) {
         cachedTokens = tokens;
+    }
+
+    // 清理已被移除的 Token ID
+    const validIds = new Set(cachedTokens.map(t => t.id));
+    for (const id of selectedTokenIds) {
+        if (!validIds.has(id)) {
+            selectedTokenIds.delete(id);
+        }
     }
 
     document.getElementById('totalTokens').textContent = tokens.length;
@@ -944,6 +1112,7 @@ function renderTokens(tokens) {
                 <div class="empty-state-hint">${emptyHint}</div>
             </div>
         `;
+        updateBatchBarState();
         return;
     }
 
@@ -952,6 +1121,7 @@ function renderTokens(tokens) {
         const tokenId = token.id;
         const isRefreshing = refreshingTokens.has(tokenId);
         const cardId = tokenId.substring(0, 8);
+        const isSelected = selectedTokenIds.has(tokenId);
 
         // 计算在原始列表中的序号（基于添加顺序）
         const originalIndex = cachedTokens.findIndex(t => t.id === token.id);
@@ -965,9 +1135,10 @@ function renderTokens(tokens) {
         const safeEmailJs = escapeJs(token.email || '');
 
         return `
-        <div class="token-card ${!token.enable ? 'disabled' : ''} ${isRefreshing ? 'refreshing' : ''} ${skipAnimation ? 'no-animation' : ''}" id="card-${escapeHtml(cardId)}">
+        <div class="token-card ${!token.enable ? 'disabled' : ''} ${isRefreshing ? 'refreshing' : ''} ${isSelected ? 'selected' : ''} ${skipAnimation ? 'no-animation' : ''}" id="card-${escapeHtml(cardId)}">
             <div class="token-header">
                 <div class="token-header-left">
+                    <input type="checkbox" class="token-checkbox" data-token-id="${safeTokenId}" ${isSelected ? 'checked' : ''} onchange="onTokenCheckboxChange(event, '${safeTokenId}')" title="选中/取消选中">
                     <span class="status ${token.enable ? 'enabled' : 'disabled'}">
                         ${token.enable ? '✅ 启用' : '❌ 禁用'}
                     </span>
@@ -1023,6 +1194,7 @@ function renderTokens(tokens) {
     });
 
     updateSensitiveInfoDisplay();
+    updateBatchBarState();
 
     // 重置动画跳过标志
     skipAnimation = false;

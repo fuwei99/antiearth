@@ -10,6 +10,7 @@ import logger from '../../utils/logger.js';
 import config from '../../config/config.js';
 import tokenManager from '../../auth/token_manager.js';
 import quotaManager from '../../auth/quota_manager.js';
+import { resolveModelWithThinkingLevel } from '../../utils/modelsConfig.js';
 import { createGeminiResponse } from '../formatters/gemini.js';
 import { validateIncomingChatRequest } from '../validators/chat.js';
 import { getSafeRetries } from './common/retry.js';
@@ -104,12 +105,16 @@ export const handleGeminiRequest = async (req, res, modelName, isStream) => {
 
   try {
     const body = req.body || {};
+    
+    // 应用智能路由，支持根据 thinking_level 动态转换模型名
+    const resolvedModelName = resolveModelWithThinkingLevel(modelName, body, 'gemini');
+
     const validation = validateIncomingChatRequest('gemini', body);
     if (!validation.ok) {
       return res.status(validation.status).json(buildGeminiErrorPayload({ message: validation.message }, validation.status));
     }
 
-    const isImageModel = modelName.includes('-image');
+    const isImageModel = resolvedModelName.includes('-image');
     let token = null;
     let tokenId = null;
     let requestBody = null;
@@ -119,14 +124,14 @@ export const handleGeminiRequest = async (req, res, modelName, isStream) => {
 
       token = nextToken;
       tokenId = await tokenManager.getTokenId(token);
-      requestBody = generateGeminiRequestBody(body, modelName, token);
+      requestBody = generateGeminiRequestBody(body, resolvedModelName, token);
       if (isImageModel) {
         prepareImageRequest(requestBody);
       }
       return true;
     };
 
-    if (!await applyTokenState(await tokenManager.getToken(modelName))) {
+    if (!await applyTokenState(await tokenManager.getToken(resolvedModelName))) {
       throw new Error('没有可用的token，请运行 npm run login 获取token');
     }
 
@@ -139,14 +144,14 @@ export const handleGeminiRequest = async (req, res, modelName, isStream) => {
     // 创建 with429Retry 选项
     const createRetryOptions = (prefix) => ({
       loggerPrefix: prefix,
-      onAttempt: () => tokenManager.recordRequest(token, modelName),
+      onAttempt: () => tokenManager.recordRequest(token, resolvedModelName),
       getTokenId: () => tokenId,
-      modelId: modelName,
+      modelId: resolvedModelName,
       refreshQuota,
       tokenManager,
       getToken: () => token,
       onBeforeRetry: async ({ previousTokenId }) => {
-        const nextToken = await tokenManager.getTokenForRetry(modelName, previousTokenId);
+        const nextToken = await tokenManager.getTokenForRetry(resolvedModelName, previousTokenId);
         return applyTokenState(nextToken);
       }
     });

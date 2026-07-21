@@ -298,6 +298,21 @@
                                 style="background: var(--primary);" title="导出Token">📤 导出</button>
                             <button type="button" onclick="importTokens()" class="btn btn-sm"
                                 style="background: var(--primary);" title="添加/导入Token">📥 导入</button>
+                    </div>
+
+                    <!-- 批量操作工具栏 -->
+                    <div class="batch-bar" id="batchBar">
+                        <div class="batch-bar-left">
+                            <label class="select-all-label">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAllTokens(this.checked)">
+                                <span>全选</span>
+                            </label>
+                            <span class="selected-count-text" id="selectedCountText">已选中 0 项</span>
+                        </div>
+                        <div class="batch-action-btns">
+                            <button type="button" onclick="batchToggleSelectedTokens(true)" class="btn btn-success btn-xs" id="batchEnableBtn" disabled>▶️ 批量启用</button>
+                            <button type="button" onclick="batchToggleSelectedTokens(false)" class="btn btn-warning btn-xs" id="batchDisableBtn" disabled>⏸️ 批量禁用</button>
+                            <button type="button" onclick="batchDeleteSelectedTokens()" class="btn btn-danger btn-xs" id="batchDeleteBtn" disabled>🗑️ 批量删除</button>
                         </div>
                     </div>
 

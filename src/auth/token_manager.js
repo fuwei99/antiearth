@@ -771,6 +771,82 @@ class TokenManager {
   }
 
   /**
+   * 批量更新 token 状态/字段
+   * @param {Array<string>} tokenIds - Token ID 数组
+   * @param {Object} updates - 更新内容
+   * @returns {Promise<Object>} 操作结果
+   */
+  async batchUpdateTokensById(tokenIds, updates) {
+    try {
+      await this._ensureInitialized();
+      if (!Array.isArray(tokenIds) || tokenIds.length === 0) {
+        return { success: false, message: 'Token ID列表不能为空' };
+      }
+
+      const tokenIdSet = new Set(tokenIds);
+      let updatedCount = 0;
+
+      for (const tokenId of tokenIds) {
+        const success = this.pool.update(tokenId, updates);
+        if (success) updatedCount++;
+      }
+
+      const allTokens = await this.store.readAll();
+      for (let i = 0; i < allTokens.length; i++) {
+        const tid = await this.pool.generateTokenId(allTokens[i]);
+        if (tokenIdSet.has(tid)) {
+          allTokens[i] = { ...allTokens[i], ...updates };
+        }
+      }
+
+      await this.store.writeAll(allTokens);
+      log.info(`批量更新 ${updatedCount} 个 Token`);
+      return { success: true, message: `成功更新 ${updatedCount} 个 Token`, count: updatedCount };
+    } catch (error) {
+      log.error('批量更新Token失败:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * 批量删除 token
+   * @param {Array<string>} tokenIds - Token ID 数组
+   * @returns {Promise<Object>} 操作结果
+   */
+  async batchDeleteTokensById(tokenIds) {
+    try {
+      await this._ensureInitialized();
+      if (!Array.isArray(tokenIds) || tokenIds.length === 0) {
+        return { success: false, message: 'Token ID列表不能为空' };
+      }
+
+      const tokenIdSet = new Set(tokenIds);
+      let deletedCount = 0;
+
+      for (const tokenId of tokenIds) {
+        const success = this.pool.remove(tokenId);
+        if (success) deletedCount++;
+      }
+
+      const allTokens = await this.store.readAll();
+      const filteredTokens = [];
+      for (const token of allTokens) {
+        const tid = await this.pool.generateTokenId(token);
+        if (!tokenIdSet.has(tid)) {
+          filteredTokens.push(token);
+        }
+      }
+
+      await this.store.writeAll(filteredTokens);
+      log.info(`批量删除 ${deletedCount} 个 Token`);
+      return { success: true, message: `成功删除 ${deletedCount} 个 Token`, count: deletedCount };
+    } catch (error) {
+      log.error('批量删除Token失败:', error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
    * 根据 tokenId 刷新 token
    * @param {string} tokenId - Token ID
    * @returns {Promise<Object>} 刷新后的 token 信息

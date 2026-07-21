@@ -1,0 +1,36 @@
+{
+  "gemini_router_rule": {
+    "gemini-3.6-flash": {
+      "default": "gemini-3.6-flash-low",
+      "minimal": "gemini-3.6-flash-low",
+      "low": "gemini-3.6-flash-low",
+      "medium": "gemini-3.6-flash-medium",
+      "high": "gemini-3.6-flash-high"
+    },
+    "gemini-3.5-flash": {
+      "default": "gemini-3.5-flash-low",
+      "minimal": "gemini-3.5-flash-extra-low",
+      "low": "gemini-3.5-flash-low",
+      "medium": "gemini-3.5-flash-low",
+      "high": "gemini-3-flash-agent"
+    }
+  },
+  "openAI_router_rule": {
+    "gemini-3.6-flash": {
+      "none": "gemini-3.6-flash-low",
+      "minimal": "gemini-3.6-flash-low",
+      "low": "gemini-3.6-flash-low",
+      "medium": "gemini-3.6-flash-medium",
+      "high": "gemini-3.6-flash-high",
+      "xhigh": "gemini-3.6-flash-high"
+    },
+    "gemini-3.5-flash": {
+      "none": "gemini-3.5-flash-low",
+      "minimal": "gemini-3.5-flash-extra-low",
+      "low": "gemini-3.5-flash-low",
+      "medium": "gemini-3.5-flash-low",
+      "high": "gemini-3-flash-agent",
+      "xhigh": "gemini-3-flash-agent"
+    }
+  }
+}

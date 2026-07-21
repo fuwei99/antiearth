@@ -205,6 +205,24 @@ export function getConfigPaths() {
       }
     }
 
+    // 查找 router.json 文件
+    let routerJsonPath = path.join(exeDir, 'router.json');
+    if (!fs.existsSync(routerJsonPath)) {
+      const cwdRouterPath = path.join(cwdDir, 'router.json');
+      if (fs.existsSync(cwdRouterPath)) {
+        routerJsonPath = cwdRouterPath;
+      }
+    }
+
+    // 查找 router.json.example 文件
+    let routerJsonExamplePath = path.join(exeDir, 'router.json.example');
+    if (!fs.existsSync(routerJsonExamplePath)) {
+      const cwdRouterExamplePath = path.join(cwdDir, 'router.json.example');
+      if (fs.existsSync(cwdRouterExamplePath)) {
+        routerJsonExamplePath = cwdRouterExamplePath;
+      }
+    }
+
     // 查找 .env.example 文件
     let examplePath = path.join(exeDir, '.env.example');
     if (!fs.existsSync(examplePath)) {
@@ -230,7 +248,7 @@ export function getConfigPaths() {
       }
     }
 
-    return { envPath, configJsonPath, configJsonExamplePath, examplePath, upstreamJsonPath, modelsJsonPath, modelsJsonExamplePath };
+    return { envPath, configJsonPath, configJsonExamplePath, examplePath, upstreamJsonPath, modelsJsonPath, modelsJsonExamplePath, routerJsonPath, routerJsonExamplePath };
   }
 
   // 开发环境
@@ -241,7 +259,9 @@ export function getConfigPaths() {
     examplePath: path.join(__dirname, '../../.env.example'),
     upstreamJsonPath: path.join(__dirname, '../config/upstream.json'),
     modelsJsonPath: path.join(__dirname, '../../models.json'),
-    modelsJsonExamplePath: path.join(__dirname, '../../models.json.example')
+    modelsJsonExamplePath: path.join(__dirname, '../../models.json.example'),
+    routerJsonPath: path.join(__dirname, '../../router.json'),
+    routerJsonExamplePath: path.join(__dirname, '../../router.json.example')
   };
 }
 

@@ -10,6 +10,7 @@ import logger from '../../utils/logger.js';
 import config from '../../config/config.js';
 import tokenManager from '../../auth/token_manager.js';
 import quotaManager from '../../auth/quota_manager.js';
+import { resolveModelWithThinkingLevel } from '../../utils/modelsConfig.js';
 import {
   createOpenAIStreamChunk as createStreamChunk,
   createOpenAIChatCompletionResponse
@@ -55,7 +56,10 @@ export const handleOpenAIRequest = async (req, res) => {
       return res.status(400).json({ error: 'model is required' });
     }
 
-    const isImageModel = model.includes('-image');
+    // 应用智能路由，支持根据 thinking_level 动态转换模型名
+    const resolvedModel = resolveModelWithThinkingLevel(model, body, 'openai');
+
+    const isImageModel = resolvedModel.includes('-image');
     let token = null;
     let tokenId = null;
     let requestBody = null;
@@ -65,14 +69,14 @@ export const handleOpenAIRequest = async (req, res) => {
 
       token = nextToken;
       tokenId = await tokenManager.getTokenId(token);
-      requestBody = generateRequestBody(messages, model, params, tools, token);
+      requestBody = generateRequestBody(messages, resolvedModel, params, tools, token);
       if (isImageModel) {
         prepareImageRequest(requestBody);
       }
       return true;
     };
 
-    if (!await applyTokenState(await tokenManager.getToken(model))) {
+    if (!await applyTokenState(await tokenManager.getToken(resolvedModel))) {
       throw new Error('没有可用的token，请运行 npm run login 获取token');
     }
 
@@ -85,14 +89,14 @@ export const handleOpenAIRequest = async (req, res) => {
     // 创建 with429Retry 选项
     const createRetryOptions = (prefix) => ({
       loggerPrefix: prefix,
-      onAttempt: () => tokenManager.recordRequest(token, model),
+      onAttempt: () => tokenManager.recordRequest(token, resolvedModel),
       getTokenId: () => tokenId,
-      modelId: model,
+      modelId: resolvedModel,
       refreshQuota,
       tokenManager,
       getToken: () => token,
       onBeforeRetry: async ({ previousTokenId }) => {
-        const nextToken = await tokenManager.getTokenForRetry(model, previousTokenId);
+        const nextToken = await tokenManager.getTokenForRetry(resolvedModel, previousTokenId);
         return applyTokenState(nextToken);
       }
     });

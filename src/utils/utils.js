@@ -157,6 +157,8 @@ export function isEnableThinking(modelName) {
     modelName === 'gemini-2.5-pro' ||
     modelName.startsWith('gemini-3.1') ||
     modelName.startsWith('gemini-3-pro-') ||
+    modelName.startsWith('gemini-3.5-flash-') ||
+    modelName.startsWith('gemini-3.6-flash-') ||
     modelName === 'rev19-uic3-1p' ||
     modelName === 'gpt-oss-120b-medium';
 }
@@ -183,8 +185,12 @@ export function generateGenerationConfig(parameters, enableThinking, actualModel
   // 使用统一的参数转换函数
   const generationConfig = toGenerationConfig(normalizedParams, enableThinking, actualModelName);
 
-  // 添加 stopSequences
-  generationConfig.stopSequences = DEFAULT_STOP_SEQUENCES;
+  // 如果模型定义了 config_setting，说明可能需要保持纯净的参数配置，跳过全局默认停止序列的注入
+  const modelConfig = getModelConfig(actualModelName);
+  if (!modelConfig?.config_setting) {
+    // 添加 stopSequences
+    generationConfig.stopSequences = DEFAULT_STOP_SEQUENCES;
+  }
 
   return generationConfig;
 }

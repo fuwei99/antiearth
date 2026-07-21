@@ -147,6 +147,23 @@ export function normalizeParameters(params, format) {
  */
 export function toGenerationConfig(normalized, enableThinking, actualModelName) {
   const modelConfig = getModelConfig(actualModelName);
+
+  // 如果模型定义了 config_setting 且包含 generationConfig，直接克隆并返回其定义的配置，避免注入默认的多余采样参数
+  if (modelConfig?.config_setting?.generationConfig) {
+    const configSettingGen = JSON.parse(JSON.stringify(modelConfig.config_setting.generationConfig));
+    // 如果需要，允许动态参数覆盖已设定的值（例如 maxOutputTokens）
+    if (normalized.max_tokens !== undefined) {
+      configSettingGen.maxOutputTokens = normalized.max_tokens;
+    }
+    // 处理 response_format 到 Gemini JSON 模式的映射
+    if (normalized.response_format && normalized.response_format.type === 'json_object') {
+      if (actualModelName && actualModelName.toLowerCase().includes('gemini')) {
+        configSettingGen.responseMimeType = "application/json";
+      }
+    }
+    return configSettingGen;
+  }
+
   const defaultThinkingBudget = modelConfig?.thinkingConfig?.thinkingBudget ?? config.defaults.thinking_budget ?? 1024;
   let thinkingBudget = 0;
   let actualEnableThinking = enableThinking;
