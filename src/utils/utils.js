@@ -150,8 +150,13 @@ export function modelMapping(modelName) {
 
 export function isEnableThinking(modelName) {
   const modelConfig = getModelConfig(modelName);
-  if (modelConfig && modelConfig.thinkingConfig) {
-    return modelConfig.thinkingConfig.includeThoughts === true;
+  if (modelConfig) {
+    if (modelConfig.config_setting?.generationConfig?.thinkingConfig) {
+      return modelConfig.config_setting.generationConfig.thinkingConfig.includeThoughts === true;
+    }
+    if (modelConfig.thinkingConfig) {
+      return modelConfig.thinkingConfig.includeThoughts === true;
+    }
   }
   return modelName.includes('-thinking') ||
     modelName === 'gemini-2.5-pro' ||

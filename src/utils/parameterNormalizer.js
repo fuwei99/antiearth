@@ -164,7 +164,7 @@ export function toGenerationConfig(normalized, enableThinking, actualModelName) 
     return configSettingGen;
   }
 
-  const defaultThinkingBudget = modelConfig?.thinkingConfig?.thinkingBudget ?? config.defaults.thinking_budget ?? 1024;
+  const defaultThinkingBudget = modelConfig?.config_setting?.generationConfig?.thinkingConfig?.thinkingBudget ?? modelConfig?.thinkingConfig?.thinkingBudget ?? config.defaults.thinking_budget ?? 1024;
   let thinkingBudget = 0;
   let actualEnableThinking = enableThinking;
   const requestedMaxOutputTokens = normalized.max_tokens || normalized.max_completion_tokens;
