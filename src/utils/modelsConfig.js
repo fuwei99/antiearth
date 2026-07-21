@@ -75,6 +75,8 @@ export function resolveModelWithThinkingLevel(modelName, reqBody = {}, format = 
     baseModelName = 'gemini-3.6-flash';
   } else if (modelName.startsWith('gemini-3.5-flash-') || modelName === 'gemini-3-flash-agent') {
     baseModelName = 'gemini-3.5-flash';
+  } else if (modelName.startsWith('gemini-3.1-pro-') || modelName === 'gemini-pro-agent') {
+    baseModelName = 'gemini-3.1-pro';
   }
 
   // 4. 优先寻找完整匹配的 router 配置，其次寻找 baseModelName 的匹配

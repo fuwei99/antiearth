@@ -13,6 +13,13 @@
       "low": "gemini-3.5-flash-low",
       "medium": "gemini-3.5-flash-low",
       "high": "gemini-3-flash-agent"
+    },
+    "gemini-3.1-pro": {
+      "default": "gemini-3.1-pro-low",
+      "minimal": "gemini-3.1-pro-low",
+      "low": "gemini-3.1-pro-low",
+      "medium": "gemini-3.1-pro-low",
+      "high": "gemini-pro-agent"
     }
   },
   "openAI_router_rule": {
@@ -31,6 +38,14 @@
       "medium": "gemini-3.5-flash-low",
       "high": "gemini-3-flash-agent",
       "xhigh": "gemini-3-flash-agent"
+    },
+    "gemini-3.1-pro": {
+      "none": "gemini-3.1-pro-low",
+      "minimal": "gemini-3.1-pro-low",
+      "low": "gemini-3.1-pro-low",
+      "medium": "gemini-3.1-pro-low",
+      "high": "gemini-pro-agent",
+      "xhigh": "gemini-pro-agent"
     }
   }
 }
