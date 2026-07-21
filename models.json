@@ -189,7 +189,9 @@
     "cacheRead": 0.3125,
     "config_setting": {
       "generationConfig": {
+        "temperature": 1.0,
         "maxOutputTokens": 65536,
+        "topP": 0.95,
         "thinkingConfig": {
           "includeThoughts": true,
           "thinkingBudget": 16000

@@ -29,10 +29,20 @@ import { getModelConfig } from './modelsConfig.js';
  * @returns {NormalizedParameters}
  */
 export function normalizeOpenAIParameters(params = {}) {
+  let temp = params.temperature;
+  if (temp === undefined || temp === null || typeof temp !== 'number' || isNaN(temp) || temp < 0 || temp > 2) {
+    temp = config.defaults.temperature;
+  }
+
+  let topP = params.top_p;
+  if (topP === undefined || topP === null || typeof topP !== 'number' || isNaN(topP) || topP < 0 || topP > 1) {
+    topP = config.defaults.top_p;
+  }
+
   const normalized = {
     max_tokens: params.max_tokens ?? config.defaults.max_tokens,
-    temperature: params.temperature ?? config.defaults.temperature,
-    top_p: params.top_p ?? config.defaults.top_p,
+    temperature: temp,
+    top_p: topP,
     top_k: params.top_k ?? config.defaults.top_k,
     response_format: params.response_format,
   };
@@ -62,10 +72,20 @@ export function normalizeOpenAIParameters(params = {}) {
 export function normalizeClaudeParameters(params = {}) {
   const { max_tokens, temperature, top_p, top_k, thinking, ...rest } = params;
   
+  let temp = temperature;
+  if (temp === undefined || temp === null || typeof temp !== 'number' || isNaN(temp) || temp < 0 || temp > 2) {
+    temp = config.defaults.temperature;
+  }
+
+  let topP = top_p;
+  if (topP === undefined || topP === null || typeof topP !== 'number' || isNaN(topP) || topP < 0 || topP > 1) {
+    topP = config.defaults.top_p;
+  }
+
   const normalized = {
     max_tokens: max_tokens ?? config.defaults.max_tokens,
-    temperature: temperature ?? config.defaults.temperature,
-    top_p: top_p ?? config.defaults.top_p,
+    temperature: temp,
+    top_p: topP,
     top_k: top_k ?? config.defaults.top_k,
   };
 
@@ -99,10 +119,20 @@ export function normalizeClaudeParameters(params = {}) {
  * @returns {NormalizedParameters}
  */
 export function normalizeGeminiParameters(generationConfig = {}) {
+  let temp = generationConfig.temperature;
+  if (temp === undefined || temp === null || typeof temp !== 'number' || isNaN(temp) || temp < 0 || temp > 2) {
+    temp = config.defaults.temperature;
+  }
+
+  let topP = generationConfig.topP;
+  if (topP === undefined || topP === null || typeof topP !== 'number' || isNaN(topP) || topP < 0 || topP > 1) {
+    topP = config.defaults.top_p;
+  }
+
   const normalized = {
     max_tokens: generationConfig.maxOutputTokens ?? config.defaults.max_tokens,
-    temperature: generationConfig.temperature ?? config.defaults.temperature,
-    top_p: generationConfig.topP ?? config.defaults.top_p,
+    temperature: temp,
+    top_p: topP,
     top_k: generationConfig.topK ?? config.defaults.top_k,
   };
 
@@ -154,6 +184,15 @@ export function toGenerationConfig(normalized, enableThinking, actualModelName) 
     // 如果需要，允许动态参数覆盖已设定的值（例如 maxOutputTokens）
     if (normalized.max_tokens !== undefined) {
       configSettingGen.maxOutputTokens = normalized.max_tokens;
+    }
+    // 针对 gemini-3.1-pro 和 gemini-pro-agent 允许传入并保留有效的 temperature 和 topP 参数
+    if (actualModelName && (actualModelName.includes('gemini-3.1-pro') || actualModelName.includes('gemini-pro-agent'))) {
+      if (normalized.temperature !== undefined) {
+        configSettingGen.temperature = normalized.temperature;
+      }
+      if (normalized.top_p !== undefined) {
+        configSettingGen.topP = normalized.top_p;
+      }
     }
     // 处理 response_format 到 Gemini JSON 模式的映射
     if (normalized.response_format && normalized.response_format.type === 'json_object') {
